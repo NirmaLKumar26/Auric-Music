@@ -1110,6 +1110,11 @@ class MainActivity : ComponentActivity() {
                                                                 popUpTo(navController.graph.id)
                                                             }
                                                         }
+                                                        inSearchScreen -> {
+                                                            // When navigating back from search result, keep search active
+                                                            onActiveChange(true)
+                                                            navController.navigateUp()
+                                                        }
                                                         !navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route } -> {
                                                             navController.navigateUp()
                                                         }

@@ -109,7 +109,7 @@ abstract class InternalDatabase : RoomDatabase() {
                 delegate =
                 Room
                     .databaseBuilder(context, InternalDatabase::class.java, DB_NAME)
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_25_26)
                     .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build(),
             )
@@ -320,6 +320,13 @@ val MIGRATION_1_2 =
                     ),
                 )
             }
+        }
+    }
+
+val MIGRATION_25_26 =
+    object : Migration(25, 26) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE song ADD COLUMN localPath TEXT DEFAULT NULL")
         }
     }
 
