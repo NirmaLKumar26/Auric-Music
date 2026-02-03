@@ -1519,6 +1519,10 @@ class MusicService :
                     mediaId,
                     dataSpec.position,
                     if (dataSpec.length >= 0) dataSpec.length else 1
+                ) || playerCache.isCached(
+                    mediaId,
+                    dataSpec.position,
+                    if (dataSpec.length >= 0) dataSpec.length else 1
                 )
             ) {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
