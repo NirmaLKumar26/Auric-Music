@@ -3,6 +3,8 @@
   <h1>Echo Music</h1>
   <p><strong>A robust, open-source music streaming client offering an ad-free experience, offline capabilities, and advanced music discovery.</strong></p>
 
+  <a href="https://trendshift.io/repositories/15844" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15844" alt="iad1tya%2FEcho-Music | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+
   <a href="https://echomusic.fun/download"><img src="assets/download.png" alt="Download" width="200"/></a>  <a href="https://echomusic.fun/obtainium"><img src="assets/obtainium.png" alt="Get it on Obtainium" width="200"/></a>
 
 </div>
