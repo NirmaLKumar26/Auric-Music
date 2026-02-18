@@ -9,7 +9,7 @@
     <img src="https://trendshift.io/api/badge/repositories/15844" alt="Trendshift" width="250" height="55"/>
   </a>
 
-  <br/><br/>
+<br>
 
   <a href="https://echomusic.fun/download">
     <img src="assets/download.png" alt="Download" width="200"/>
