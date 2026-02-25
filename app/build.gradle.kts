@@ -18,8 +18,8 @@ android {
         applicationId = "nirmal.auric.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 336
-        versionName = "3.3.6"
+        versionCode = 400
+        versionName = "4.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

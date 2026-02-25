@@ -236,7 +236,7 @@ fun AboutScreen(
                 SocialLinkItem(
                     icon = painterResource(R.drawable.language),
                     title = "Website",
-                    subtitle = "auricmusictndev.in",
+                    subtitle = "auricmusic.tndev.in",
                     onClick = { uriHandler.openUri("https://auricmusic.tndev.in") }
                 )
                 
