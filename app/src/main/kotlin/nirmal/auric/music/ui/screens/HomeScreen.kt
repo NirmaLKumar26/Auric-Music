@@ -131,6 +131,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.random.Random
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -387,6 +392,81 @@ fun HomeScreen(
             state = lazylistState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
         ) {
+            item(key = "home_greeting_header") {
+                val calendar = java.util.Calendar.getInstance()
+                val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                val greeting = when {
+                    hour < 12 -> "Good Morning"
+                    hour < 17 -> "Good Afternoon"
+                    else -> "Good Evening"
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+                            .padding(horizontal = 20.dp, vertical = 22.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = greeting,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = if (isLoggedIn && accountName.isNotBlank()) accountName else "Welcome Back",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .combinedClickable(onClick = { navController.navigate("account") }),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (url != null) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(url)
+                                        .diskCachePolicy(CachePolicy.ENABLED)
+                                        .diskCacheKey(url)
+                                        .crossfade(false)
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(R.drawable.person),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 ChipsRow(
                     chips = homePage?.chips?.map { it to it.title } ?: emptyList(),
@@ -437,60 +517,32 @@ fun HomeScreen(
                     }
 
                     item(key = "quick_picks_list") {
-                        LazyHorizontalGrid(
-                            state = quickPicksLazyGridState,
-                            rows = GridCells.Fixed(4),
-                            flingBehavior = rememberSnapFlingBehavior(quickPicksSnapLayoutInfoProvider),
+                        LazyRow(
                             contentPadding = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
                                 .asPaddingValues(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(ListItemHeight * 4)
                                 .animateItem()
                         ) {
                             items(
                                 items = quickPicks.distinctBy { it.id },
                                 key = { it.id }
                             ) { originalSong ->
-                                // fetch song from database to keep updated
                                 val song by database.song(originalSong.id)
                                     .collectAsState(initial = originalSong)
 
-                                SongListItem(
+                                SongGridItem(
                                     song = song!!,
-                                    showInLibraryIcon = true,
                                     isActive = song!!.id == mediaMetadata?.id,
                                     isPlaying = isPlaying,
-                                    isSwipeable = false,
-                                    trailingContent = {
-                                        IconButton(
-                                            onClick = {
-                                                menuState.show {
-                                                    SongMenu(
-                                                        originalSong = song!!,
-                                                        navController = navController,
-                                                        onDismiss = menuState::dismiss
-                                                    )
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.more_vert),
-                                                contentDescription = null
-                                            )
-                                        }
-                                    },
                                     modifier = Modifier
-                                        .width(horizontalLazyGridItemWidth)
                                         .combinedClickable(
                                             onClick = {
                                                 if (song!!.id == mediaMetadata?.id) {
                                                     playerConnection.player.togglePlayPause()
                                                 } else {
                                                     playerConnection.playQueue(
-                                                        YouTubeQueue.radio(
-                                                            song!!.toMediaMetadata()
-                                                        )
+                                                        YouTubeQueue.radio(song!!.toMediaMetadata())
                                                     )
                                                 }
                                             },
@@ -513,6 +565,7 @@ fun HomeScreen(
 
                 keepListening?.takeIf { it.isNotEmpty() }?.let { keepListening ->
                     item(key = "keep_listening_title") {
+                        Spacer(Modifier.height(8.dp))
                         NavigationTitle(
                             title = stringResource(R.string.keep_listening),
                             modifier = Modifier.animateItem()
@@ -597,6 +650,7 @@ fun HomeScreen(
 
                 forgottenFavorites?.takeIf { it.isNotEmpty() }?.let { forgottenFavorites ->
                     item(key = "forgotten_favorites_title") {
+                        Spacer(Modifier.height(8.dp))
                         NavigationTitle(
                             title = stringResource(R.string.forgotten_favorites),
                             modifier = Modifier.animateItem()
@@ -684,6 +738,7 @@ fun HomeScreen(
 
                 similarRecommendations?.forEachIndexed { index, recommendation ->
                     item(key = "similar_to_title_$index") {
+                        Spacer(Modifier.height(8.dp))
                         NavigationTitle(
                             label = stringResource(R.string.similar_to),
                             title = recommendation.title.title,
