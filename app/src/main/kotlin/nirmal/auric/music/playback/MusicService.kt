@@ -12,7 +12,10 @@ import android.database.SQLException
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.audiofx.AudioEffect
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
+import android.media.audiofx.Virtualizer
 import android.net.ConnectivityManager
 import android.os.Binder
 import android.os.Build
@@ -73,6 +76,11 @@ import nirmal.auric.music.R
 import nirmal.auric.music.constants.AudioNormalizationKey
 import nirmal.auric.music.constants.AudioOffload
 import nirmal.auric.music.constants.AudioQualityKey
+import nirmal.auric.music.constants.BassBoostEnabledKey
+import nirmal.auric.music.constants.BassBoostStrengthKey
+import nirmal.auric.music.constants.EqualizerEnabledKey
+import nirmal.auric.music.constants.VirtualizerEnabledKey
+import nirmal.auric.music.constants.VirtualizerStrengthKey
 import nirmal.auric.music.constants.AutoDownloadOnLikeKey
 import nirmal.auric.music.constants.AutoLoadMoreKey
 import nirmal.auric.music.constants.AutoSkipNextOnErrorKey
@@ -234,6 +242,9 @@ class MusicService :
 
     private var isAudioEffectSessionOpened = false
     private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var bassBoost: BassBoost? = null
+    private var equalizer: Equalizer? = null
+    private var virtualizer: Virtualizer? = null
 
     private var lastPlaybackSpeed = 1.0f
 
@@ -1175,10 +1186,85 @@ class MusicService :
         }
     }
 
+    /**
+     * Applies audio enhancement effects: BassBoost, 5-band Equalizer (high quality preset),
+     * and Virtualizer. Since YouTube doesn't provide lossless/ultra audio, these effects
+     * compensate by enhancing bass presence, boosting highs, and widening the soundstage.
+     */
+    private fun setupAudioEnhancer() {
+        val audioSessionId = player.audioSessionId
+        if (audioSessionId == C.AUDIO_SESSION_ID_UNSET || audioSessionId <= 0) {
+            Log.w(TAG, "setupAudioEnhancer: invalid audioSessionId ($audioSessionId), skipping")
+            return
+        }
+        scope.launch {
+            val bassBoostEnabled = dataStore.data.map { it[BassBoostEnabledKey] ?: true }.first()
+            val bassBoostStrength = dataStore.data.map { it[BassBoostStrengthKey] ?: 700f }.first()
+            val equalizerEnabled = dataStore.data.map { it[EqualizerEnabledKey] ?: true }.first()
+            val virtualizerEnabled = dataStore.data.map { it[VirtualizerEnabledKey] ?: false }.first()
+            val virtualizerStrength = dataStore.data.map { it[VirtualizerStrengthKey] ?: 500f }.first()
+            withContext(Dispatchers.Main) {
+                // --- Bass Boost ---
+                try {
+                    if (bassBoost == null) bassBoost = BassBoost(0, audioSessionId)
+                    bassBoost?.setStrength(bassBoostStrength.toInt().coerceIn(0, 1000).toShort())
+                    bassBoost?.enabled = bassBoostEnabled
+                    Log.d(TAG, "BassBoost: enabled=$bassBoostEnabled strength=${bassBoostStrength.toInt()}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "BassBoost init failed: ${e.message}")
+                    bassBoost = null
+                }
+                // --- High-Quality Equalizer preset (boost bass + air, flat mids) ---
+                try {
+                    if (equalizer == null) equalizer = Equalizer(0, audioSessionId)
+                    equalizer?.let { eq ->
+                        val bands = eq.numberOfBands.toInt()
+                        if (equalizerEnabled && bands >= 5) {
+                            // Typical 5-band mapping: 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz
+                            eq.setBandLevel(0, 600.toShort())  // +6 dB sub-bass
+                            eq.setBandLevel(1, 400.toShort())  // +4 dB bass body
+                            eq.setBandLevel(2, 0.toShort())    //  0 dB midrange (natural)
+                            eq.setBandLevel(3, 200.toShort())  // +2 dB presence/clarity
+                            eq.setBandLevel(4, 350.toShort())  // +3.5 dB air/brilliance
+                            eq.enabled = true
+                            Log.d(TAG, "Equalizer HQ preset applied ($bands bands)")
+                        } else {
+                            eq.enabled = false
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Equalizer init failed: ${e.message}")
+                    equalizer = null
+                }
+                // --- Virtualizer (3D stereo widening) ---
+                try {
+                    if (virtualizer == null) virtualizer = Virtualizer(0, audioSessionId)
+                    virtualizer?.setStrength(virtualizerStrength.toInt().coerceIn(0, 1000).toShort())
+                    virtualizer?.enabled = virtualizerEnabled
+                    Log.d(TAG, "Virtualizer: enabled=$virtualizerEnabled strength=${virtualizerStrength.toInt()}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Virtualizer init failed: ${e.message}")
+                    virtualizer = null
+                }
+            }
+        }
+    }
+
+    private fun releaseAudioEnhancer() {
+        try { bassBoost?.release() } catch (_: Exception) {}
+        try { equalizer?.release() } catch (_: Exception) {}
+        try { virtualizer?.release() } catch (_: Exception) {}
+        bassBoost = null
+        equalizer = null
+        virtualizer = null
+        Log.d(TAG, "Audio enhancer effects released")
+    }
+
     private fun openAudioEffectSession() {
         if (isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = true
         setupLoudnessEnhancer()
+        setupAudioEnhancer()
         sendBroadcast(
             Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -1192,6 +1278,7 @@ class MusicService :
         if (!isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = false
         releaseLoudnessEnhancer()
+        releaseAudioEnhancer()
         sendBroadcast(
             Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -1618,7 +1705,7 @@ class MusicService :
                 enableAudioTrackPlaybackParams: Boolean,
             ) = DefaultAudioSink
                 .Builder(this@MusicService)
-                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableFloatOutput(true) // Always use 32-bit float pipeline for maximum quality
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .setAudioProcessorChain(
                     DefaultAudioSink.DefaultAudioProcessorChain(

@@ -57,6 +57,13 @@ enum class AudioQuality {
 }
 val AudioOffload = booleanPreferencesKey("enableOffload")
 
+// Audio enhancement effects
+val BassBoostEnabledKey = booleanPreferencesKey("bassBoostEnabled")
+val BassBoostStrengthKey = floatPreferencesKey("bassBoostStrength")
+val EqualizerEnabledKey = booleanPreferencesKey("equalizerEnabled")
+val VirtualizerEnabledKey = booleanPreferencesKey("virtualizerEnabled")
+val VirtualizerStrengthKey = floatPreferencesKey("virtualizerStrength")
+
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
 val AudioNormalizationKey = booleanPreferencesKey("audioNormalization")

@@ -265,4 +265,15 @@
     <string name="scrobble_min_track_duration">Scrobble songs longer than</string>
     <string name="scrobble_delay_percent">Scrobble delay percent</string>
     <string name="scrobble_delay_minutes">Scrobble delay minutes</string>
+
+    <!-- Audio Enhancement (compensates for YouTube's lack of lossless streams) -->
+    <string name="audio_enhancement">Audio Enhancement</string>
+    <string name="bass_boost">Bass Boost</string>
+    <string name="bass_boost_desc">Enhance low-frequency bass presence</string>
+    <string name="bass_boost_strength">Bass boost strength (0–1000)</string>
+    <string name="equalizer_hq">High Quality Equalizer</string>
+    <string name="equalizer_hq_desc">Boost bass (+6 dB) and air (+3.5 dB) to improve perceived quality of compressed streams</string>
+    <string name="virtualizer">3D Virtualizer</string>
+    <string name="virtualizer_desc">Widen virtual stereo soundstage</string>
+    <string name="virtualizer_strength">Virtualizer strength (0–1000)</string>
 </resources>
