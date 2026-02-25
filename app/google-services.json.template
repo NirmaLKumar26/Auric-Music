@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "YOUR_MOBILE_SDK_APP_ID",
         "android_client_info": {
-          "package_name": "iad1tya.echo.music"
+          "package_name": "nirmal.auric.music"
         }
       },
       "oauth_client": [],
@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "YOUR_MOBILE_SDK_APP_ID",
         "android_client_info": {
-          "package_name": "iad1tya.echo.music.debug"
+          "package_name": "nirmal.auric.music.debug"
         }
       },
       "oauth_client": [],

@@ -421,7 +421,7 @@ The mini player now features a modern pill-shaped design.
   - **Library Filter Buttons**: Updated font size to 18sp to prevent text wrapping
   - **Album Screen**: Added large green play button (72dp) positioned on the right side
   - **About Section**: Changed "Author" to "Modified by" in settings
-  - **Credit Screen**: Updated attribution text to "Modified by iad1tya"
+  - **Credit Screen**: Updated attribution text to "Modified by Auric Music contributors"
 
 - **Widget Improvements**
   - **Song Poster Display**: Fixed widget poster display for YouTube videos and general media

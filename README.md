@@ -106,11 +106,11 @@ Join the community for updates, discussions, and help.
 If Auric Music has been useful to you, consider supporting its development.
 
 <div align="center">
-  <a href="https://buymeacoffee.com/"><img src="assets/bmac.png" width="140"/></a>
+  <a href="https://github.com/NirmaLKumar26/Auric-Music"><img src="assets/bmac.png" width="140"/></a>
   &nbsp;
-  <a href="https://intradeus.github.io/http-protocol-redirector/?r=upi://pay?pa=@upi&pn=Aditya%20Yadav&am=&tn=Thank%20You"><img src="assets/upi.svg" width="100"/></a>
+  <a href="https://github.com/NirmaLKumar26/Auric-Music"><img src="assets/upi.svg" width="100"/></a>
   &nbsp;
-  <a href="https://www.patreon.com/cw/"><img src="assets/patreon3.png" width="100"/></a>
+  <a href="https://github.com/NirmaLKumar26/Auric-Music"><img src="assets/patreon3.png" width="100"/></a>
 </div>
 
 

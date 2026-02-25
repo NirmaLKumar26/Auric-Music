@@ -248,7 +248,7 @@ fun AboutScreen(
                 SocialLinkItem(
                     icon = painterResource(R.drawable.github),
                     title = "GitHub",
-                    subtitle = "iad1tya/Auric-Music",
+                    subtitle = "NirmaLKumar26/Auric-Music",
                     onClick = { uriHandler.openUri("https://github.com/NirmaLKumar26/Auric-Music") }
                 )
                 

@@ -65,12 +65,12 @@ We are committed to providing a welcoming and inspiring community for all. We pl
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Echo-Music.git
-   cd Echo-Music
+   git clone https://github.com/YOUR_USERNAME/Auric-Music.git
+   cd Auric-Music
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/iad1tya/Echo-Music.git
+   git remote add upstream https://github.com/NirmaLKumar26/Auric-Music.git
    ```
 
 ## Development Setup
@@ -107,7 +107,7 @@ If you want to test Firebase features:
 
 ## Handling Sensitive Information
 
-When contributing to Echo Music, it's crucial to handle sensitive information properly:
+When contributing to Auric Music, it's crucial to handle sensitive information properly:
 
 ### Files That Should Never Be Committed
 
@@ -405,7 +405,7 @@ We follow [Semantic Versioning](https://semver.org/):
 
 If you have questions about contributing:
 
-1. Check the [GitHub Discussions](https://github.com/iad1tya/Echo-Music/discussions)
+1. Check the [GitHub Discussions](https://github.com/NirmaLKumar26/Auric-Music/discussions)
 2. Create a new discussion
 3. Contact maintainers directly through GitHub
 
@@ -421,7 +421,7 @@ Contributors will be recognized in:
 
 If you have questions about contributing:
 
-1. Check the [GitHub Discussions](https://github.com/iad1tya/Echo-Music/discussions)
+1. Check the [GitHub Discussions](https://github.com/NirmaLKumar26/Auric-Music/discussions)
 2. Create a new discussion
 3. Contact maintainers directly
 

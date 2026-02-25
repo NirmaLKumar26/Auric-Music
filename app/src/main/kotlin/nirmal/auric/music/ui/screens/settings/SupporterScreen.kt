@@ -292,7 +292,7 @@ fun SupporterScreen(
         ) {
             Column(modifier = Modifier.padding(4.dp)) {
                 BuyMeCoffeeItem(
-                    onClick = { uriHandler.openUri("https://www.buymeacoffee.com/iad1tya") }
+                    onClick = { uriHandler.openUri("https://github.com/NirmaLKumar26/Auric-Music") }
                 )
                 
                 HorizontalDivider(
@@ -304,7 +304,7 @@ fun SupporterScreen(
                     icon = painterResource(R.drawable.favorite),
                     title = "Patreon",
                     subtitle = "Monthly support",
-                    onClick = { uriHandler.openUri("https://patreon.com/iad1tya") },
+                    onClick = { uriHandler.openUri("https://github.com/NirmaLKumar26/Auric-Music") },
                     isLast = false
                 )
                 
@@ -317,7 +317,7 @@ fun SupporterScreen(
                     icon = painterResource(R.drawable.upi),
                     title = "UPI Payment",
                     subtitle = "Direct payment (India only)",
-                    onClick = { uriHandler.openUri("https://intradeus.github.io/http-protocol-redirector/?r=upi://pay?pa=iad1tya@upi&pn=Aditya%20Yadav&am=&tn=Thank%20You%20so%20much%20for%20this%20support") },
+                    onClick = { uriHandler.openUri("https://github.com/NirmaLKumar26/Auric-Music") },
                     isLast = false
                 )
                 

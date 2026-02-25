@@ -119,9 +119,9 @@ We may update this Privacy Policy from time to time. We will notify you of any c
 
 If you have any questions about this Privacy Policy or our data practices, please contact us:
 
-- **GitHub**: [https://github.com/iad1tya/Echo-Music](https://github.com/iad1tya/Echo-Music)
-- **Issues**: [https://github.com/iad1tya/Echo-Music/issues](https://github.com/iad1tya/Echo-Music/issues)
-- **Discussions**: [https://github.com/iad1tya/Echo-Music/discussions](https://github.com/iad1tya/Echo-Music/discussions)
+- **GitHub**: [https://github.com/NirmaLKumar26/Auric-Music](https://github.com/NirmaLKumar26/Auric-Music)
+- **Issues**: [https://github.com/NirmaLKumar26/Auric-Music/issues](https://github.com/NirmaLKumar26/Auric-Music/issues)
+- **Discussions**: [https://github.com/NirmaLKumar26/Auric-Music/discussions](https://github.com/NirmaLKumar26/Auric-Music/discussions)
 
 ## Data Protection Compliance
 

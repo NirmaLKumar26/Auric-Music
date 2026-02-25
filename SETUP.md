@@ -1,6 +1,6 @@
 # Setup Instructions
 
-This document provides instructions for setting up the Echo Music project for development.
+This document provides instructions for setting up the Auric Music project for development.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ This document provides instructions for setting up the Echo Music project for de
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/iad1tya/Echo-Music.git
-cd Echo-Music
+git clone https://github.com/NirmaLKumar26/Auric-Music.git
+cd Auric-Music
 ```
 
 ### 2. Configure Local Properties
