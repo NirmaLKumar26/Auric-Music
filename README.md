@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="assets/Echo_github.png" alt="Echo Music Logo" width="140"/>
+  <img src="assets/Auric_Music.jpg" alt="Auric Music Logo" width="140"/>
 
-  <h1>Echo Music</h1>
+  <h1>Auric Music</h1>
 
   <p><strong>A robust, open-source music streaming client offering an ad-free experience, offline capabilities, and advanced music discovery.</strong></p>
 
@@ -24,7 +24,7 @@
 
 ## Overview
 
-Echo Music delivers a seamless, premium listening experience by leveraging YouTube Music's vast library — without the ads. It adds powerful extras including offline downloads, real-time synchronized lyrics, and environment-aware music recognition.
+Auric Music delivers a seamless, premium listening experience by leveraging YouTube Music's vast library — without the ads. It adds powerful extras including offline downloads, real-time synchronized lyrics, and environment-aware music recognition.
 
 ---
 
@@ -48,8 +48,8 @@ Echo Music delivers a seamless, premium listening experience by leveraging YouTu
 - **Background Playback** — Listen while using other apps or with the screen off.
 - **Offline Mode** — Download tracks, albums, and playlists via a dedicated download manager.
 
-### Discovery & Echo Find
-- **Echo Find** — Identify songs playing around you using advanced audio recognition.
+### Discovery & Auric Find
+- **Auric Find** — Identify songs playing around you using advanced audio recognition.
 - **Smart Recommendations** — Personalized suggestions based on your listening history.
 - **Comprehensive Browsing** — Explore Charts, Podcasts, Moods, and Genres.
 
@@ -70,8 +70,8 @@ Download the latest APK from the [Releases Page](https://github.com/iad1tya/Echo
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/iad1tya/Echo-Music.git
-   cd Echo-Music
+   git clone https://github.com/NirmaLKumar26/Auric-Music.git
+   cd Auric-Music
    ```
 
 2. **Configure Android SDK**
@@ -103,7 +103,7 @@ Join the community for updates, discussions, and help.
 
 ## Support the Project
 
-If Echo Music has been useful to you, consider supporting its development.
+If Auric Music has been useful to you, consider supporting its development.
 
 <div align="center">
   <a href="https://buymeacoffee.com/iad1tya"><img src="assets/bmac.png" width="140"/></a>
@@ -125,7 +125,7 @@ If Echo Music has been useful to you, consider supporting its development.
 
 ## Special Thanks
 
-Echo Music stands on the shoulders of several excellent open-source projects. Sincere thanks to:
+Auric Music stands on the shoulders of several excellent open-source projects. Sincere thanks to:
 
 | Project | Description |
 |---------|-------------|
@@ -138,7 +138,7 @@ Echo Music stands on the shoulders of several excellent open-source projects. Si
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=EchoMusicApp/Echo-Music&type=timeline&legend=top-left)](https://www.star-history.com/#EchoMusicApp/Echo-Music&type=timeline&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=NirmaLKumar26/Auric-Music&type=timeline&legend=top-left)](https://www.star-history.com/#NirmaLKumar26/Auric-Music&type=timeline&legend=top-left)
 
 ---
 
