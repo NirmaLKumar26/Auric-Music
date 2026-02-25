@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -11,11 +11,11 @@ plugins {
 }
 
 android {
-    namespace = "iad1tya.echo.music"
+    namespace = "nirmal.auric.music"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "iad1tya.echo.music"
+        applicationId = "nirmal.auric.music"
         minSdk = 26
         targetSdk = 36
         versionCode = 336

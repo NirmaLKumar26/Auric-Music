@@ -50,7 +50,7 @@ private val client = HttpClient {
     }
 
     defaultRequest {
-        header(HttpHeaders.UserAgent, "Echo Music (https://github.com/iad1tya/Echo-Music)")
+        header(HttpHeaders.UserAgent, "Auric Music (https://github.com/NirmaLKumar26/Auric-Music)")
     }
 }
 

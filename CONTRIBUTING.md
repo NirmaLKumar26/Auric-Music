@@ -1,4 +1,4 @@
-# Contributing to Echo Music
+﻿# Contributing to Echo Music
 
 Thank you for your interest in contributing to Echo Music! This document provides comprehensive guidelines and information for contributors.
 
@@ -95,8 +95,8 @@ If you want to test Firebase features:
 
 1. Create a Firebase project
 2. Add Android apps with package names:
-   - `iad1tya.echo.music` (release)
-   - `iad1tya.echo.music.debug` (debug)
+   - `nirmal.auric.music` (release)
+   - `nirmal.auric.music.debug` (debug)
 3. Copy the template and configure it with your Firebase credentials:
    ```bash
    cp app/google-services.json.template app/google-services.json
@@ -341,7 +341,7 @@ app/src/main/java/com/maxrave/echo/
 ./gradlew test
 
 # Run specific test class
-./gradlew test --tests "iad1tya.echo.MusicPlayerTest"
+./gradlew test --tests "nirmal.auric.musicPlayerTest"
 
 # Run tests with coverage
 ./gradlew testDebugUnitTestCoverage

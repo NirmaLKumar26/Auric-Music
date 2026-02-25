@@ -1,4 +1,4 @@
-# Add project specific ProGuard rules here.
+﻿# Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.kts.
 #
@@ -95,11 +95,11 @@
 
 ## Queue Persistence Rules
 # Keep queue-related classes to prevent serialization issues in release builds
--keep class iad1tya.echo.music.models.PersistQueue { *; }
--keep class iad1tya.echo.music.models.PersistPlayerState { *; }
--keep class iad1tya.echo.music.models.QueueData { *; }
--keep class iad1tya.echo.music.models.QueueType { *; }
--keep class iad1tya.echo.music.playback.queues.** { *; }
+-keep class nirmal.auric.music.models.PersistQueue { *; }
+-keep class nirmal.auric.music.models.PersistPlayerState { *; }
+-keep class nirmal.auric.music.models.QueueData { *; }
+-keep class nirmal.auric.music.models.QueueType { *; }
+-keep class nirmal.auric.music.playback.queues.** { *; }
 
 # Keep serialization methods for queue persistence
 -keepclassmembers class * implements java.io.Serializable {
@@ -207,12 +207,12 @@
 -dontwarn okio.**
 
 ## Keep App Classes
--keep class iad1tya.echo.music.** { *; }
--keep interface iad1tya.echo.music.** { *; }
+-keep class nirmal.auric.music.** { *; }
+-keep interface nirmal.auric.music.** { *; }
 
 ## Keep all model classes
--keep class iad1tya.echo.music.models.** { *; }
--keep class iad1tya.echo.music.db.entities.** { *; }
+-keep class nirmal.auric.music.models.** { *; }
+-keep class nirmal.auric.music.db.entities.** { *; }
 
 ## Keep service classes - Critical for preventing service crashes
 -keep class * extends android.app.Service {
@@ -235,7 +235,7 @@
 }
 
 ## Keep MusicService specifically to prevent crashes
--keep class iad1tya.echo.music.playback.MusicService {
+-keep class nirmal.auric.music.playback.MusicService {
     <init>();
     *** player;
     *** mediaSession;
@@ -250,7 +250,7 @@
 }
 
 ## Keep ExoDownloadService
--keep class iad1tya.echo.music.playback.ExoDownloadService {
+-keep class nirmal.auric.music.playback.ExoDownloadService {
     <init>();
     *** onCreate();
     *** onDestroy();
