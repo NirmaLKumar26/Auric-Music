@@ -245,3 +245,4 @@ node_modules/
 
 # TernJS port file
 .tern-port
+core
