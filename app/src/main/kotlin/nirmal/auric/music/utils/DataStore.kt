@@ -3,9 +3,11 @@
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -89,19 +91,31 @@ inline fun <reified T : Enum<T>> rememberEnumPreference(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val initialValue = context.dataStore[key].toEnum(defaultValue = defaultValue)
-    val state =
-        remember {
-            context.dataStore.data
-                .map { it[key].toEnum(defaultValue = defaultValue) }
-                .distinctUntilChanged()
-        }.collectAsState(initialValue)
+    val initialValue = remember(key.name) {
+        context.dataStore[key].toEnum(defaultValue = defaultValue)
+    }
+    val localState = remember(key.name) {
+        mutableStateOf(initialValue)
+    }
 
-    return remember {
+    LaunchedEffect(key.name) {
+        context.dataStore.data
+            .map { it[key].toEnum(defaultValue = defaultValue) }
+            .distinctUntilChanged()
+            .collect { persisted ->
+                if (localState.value != persisted) {
+                    localState.value = persisted
+                }
+            }
+    }
+
+    return remember(key.name) {
         object : MutableState<T> {
             override var value: T
-                get() = state.value
+                get() = localState.value
                 set(value) {
+                    // Update UI immediately, then persist.
+                    localState.value = value
                     coroutineScope.launch {
                         context.dataStore.edit {
                             it[key] = value.name

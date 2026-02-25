@@ -171,6 +171,8 @@ fun PlayerSettings(
             valueText = {
                 when (it) {
                     AudioQuality.AUTO -> stringResource(R.string.audio_quality_auto)
+                    AudioQuality.LOSSLESS -> stringResource(R.string.audio_quality_lossless)
+                    AudioQuality.ULTRA -> stringResource(R.string.audio_quality_ultra)
                     AudioQuality.HIGH -> stringResource(R.string.audio_quality_high)
                     AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
                 }

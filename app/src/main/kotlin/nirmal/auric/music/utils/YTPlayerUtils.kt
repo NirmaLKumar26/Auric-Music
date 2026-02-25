@@ -245,14 +245,55 @@ object YTPlayerUtils {
     ): PlayerResponse.StreamingData.Format? {
         Timber.tag(logTag).d("Finding format with audioQuality: $audioQuality, network metered: ${connectivityManager.isActiveNetworkMetered}")
 
+        fun mimeTypeCodecHint(format: PlayerResponse.StreamingData.Format): String {
+            // Example: "audio/mp4; codecs=\"mp4a.40.2\""
+            return format.mimeType.lowercase()
+        }
+
+        fun isLikelyLossless(format: PlayerResponse.StreamingData.Format): Boolean {
+            val mime = mimeTypeCodecHint(format)
+            return mime.contains("flac") || mime.contains("alac") || mime.contains("pcm") || mime.contains("wav")
+        }
+
+        fun preferOpusBonus(format: PlayerResponse.StreamingData.Format): Int {
+            // Small preference for Opus on equal-ish bitrates.
+            return if (format.mimeType.startsWith("audio/webm")) 10240 else 0
+        }
+
         val format = playerResponse.streamingData?.adaptiveFormats
             ?.filter { it.isAudio && it.isOriginal }
             ?.maxByOrNull {
-                it.bitrate * when (audioQuality) {
+                val bitrateScoreSign = when (audioQuality) {
                     AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                    AudioQuality.HIGH -> 1
                     AudioQuality.LOW -> -1
-                } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
+                    AudioQuality.HIGH,
+                    AudioQuality.ULTRA,
+                    AudioQuality.LOSSLESS -> 1
+                }
+
+                val losslessBonus = if (audioQuality == AudioQuality.LOSSLESS && isLikelyLossless(it)) {
+                    // Big bump so any lossless-capable stream wins, if present.
+                    1_000_000
+                } else {
+                    0
+                }
+
+                val opusBonus = when (audioQuality) {
+                    AudioQuality.HIGH,
+                    AudioQuality.AUTO,
+                    AudioQuality.LOW,
+                    AudioQuality.LOSSLESS -> preferOpusBonus(it)
+                    AudioQuality.ULTRA -> 0 // "Ultra" should strictly chase highest bitrate.
+                }
+
+                val sampleRateBonus = if (audioQuality == AudioQuality.LOSSLESS) {
+                    // Minor tie-breaker for better audio configs.
+                    (it.audioSampleRate ?: 0) / 10
+                } else {
+                    0
+                }
+
+                (it.bitrate * bitrateScoreSign) + opusBonus + losslessBonus + sampleRateBonus
             }
 
         if (format != null) {

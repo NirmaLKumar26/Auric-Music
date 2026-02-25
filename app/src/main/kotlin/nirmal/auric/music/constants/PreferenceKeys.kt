@@ -50,6 +50,8 @@ val AudioQualityKey = stringPreferencesKey("audioQuality")
 
 enum class AudioQuality {
     AUTO,
+    LOSSLESS,
+    ULTRA,
     HIGH,
     LOW,
 }
