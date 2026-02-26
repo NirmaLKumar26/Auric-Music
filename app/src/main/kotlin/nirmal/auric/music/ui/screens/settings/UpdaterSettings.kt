@@ -64,6 +64,7 @@ import nirmal.auric.music.LocalPlayerAwareWindowInsets
 import nirmal.auric.music.MainActivity
 import nirmal.auric.music.R
 import nirmal.auric.music.constants.CheckForUpdatesKey
+import nirmal.auric.music.ui.component.AutoUpdateDialog
 import nirmal.auric.music.ui.component.IconButton
 import nirmal.auric.music.ui.component.SwitchPreference
 import nirmal.auric.music.ui.utils.backToMain
@@ -82,6 +83,9 @@ fun UpdaterScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isChecking by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var pendingVersion by remember { mutableStateOf("") }
+    var pendingApkUrl by remember { mutableStateOf("") }
 
     fun checkForUpdateManually() {
         isChecking = true
@@ -91,20 +95,39 @@ fun UpdaterScreen(
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Accept", "application/json")
-                
+
                 val responseText = connection.inputStream.bufferedReader().use { it.readText() }
                 connection.disconnect()
-                
+
                 val json = org.json.JSONObject(responseText)
                 val tagName = json.getString("tag_name")
                 val latestVersion = tagName.removePrefix("v")
-                
+
+                // Parse APK URL from release assets
+                var apkDownloadUrl = ""
+                val assets = json.optJSONArray("assets")
+                if (assets != null) {
+                    for (i in 0 until assets.length()) {
+                        val asset = assets.getJSONObject(i)
+                        val name = asset.optString("name", "")
+                        if (name.endsWith(".apk", ignoreCase = true)) {
+                            apkDownloadUrl = asset.optString("browser_download_url", "")
+                            break
+                        }
+                    }
+                }
+
                 withContext(Dispatchers.Main) {
                     isChecking = false
                     if (latestVersion != BuildConfig.VERSION_NAME) {
-                        // Show notification
+                        pendingVersion = latestVersion
+                        pendingApkUrl = apkDownloadUrl
                         showUpdateNotification(context, latestVersion)
-                        Toast.makeText(context, "New version $latestVersion available!", Toast.LENGTH_LONG).show()
+                        if (apkDownloadUrl.isNotEmpty()) {
+                            showUpdateDialog = true
+                        } else {
+                            Toast.makeText(context, "New version $latestVersion available!", Toast.LENGTH_LONG).show()
+                        }
                     } else {
                         Toast.makeText(context, "You're on the latest version", Toast.LENGTH_SHORT).show()
                     }
@@ -116,6 +139,14 @@ fun UpdaterScreen(
                 }
             }
         }
+    }
+
+    if (showUpdateDialog) {
+        AutoUpdateDialog(
+            version = pendingVersion,
+            apkUrl = pendingApkUrl,
+            onDismiss = { showUpdateDialog = false },
+        )
     }
 
     Column(

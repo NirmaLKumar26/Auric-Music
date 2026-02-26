@@ -54,11 +54,6 @@ import nirmal.auric.music.constants.AudioNormalizationKey
 import nirmal.auric.music.constants.AudioQuality
 import nirmal.auric.music.constants.AudioQualityKey
 import nirmal.auric.music.constants.AudioOffload
-import nirmal.auric.music.constants.BassBoostEnabledKey
-import nirmal.auric.music.constants.BassBoostStrengthKey
-import nirmal.auric.music.constants.EqualizerEnabledKey
-import nirmal.auric.music.constants.VirtualizerEnabledKey
-import nirmal.auric.music.constants.VirtualizerStrengthKey
 import nirmal.auric.music.constants.AutoDownloadOnLikeKey
 import nirmal.auric.music.constants.AutoLoadMoreKey
 import nirmal.auric.music.constants.DisableLoadMoreWhenRepeatAllKey
@@ -151,27 +146,6 @@ fun PlayerSettings(
         defaultValue = 30f
     )
 
-    val (bassBoostEnabled, onBassBoostEnabledChange) = rememberPreference(
-        BassBoostEnabledKey,
-        defaultValue = true
-    )
-    val (bassBoostStrength, onBassBoostStrengthChange) = rememberPreference(
-        BassBoostStrengthKey,
-        defaultValue = 700f
-    )
-    val (equalizerEnabled, onEqualizerEnabledChange) = rememberPreference(
-        EqualizerEnabledKey,
-        defaultValue = true
-    )
-    val (virtualizerEnabled, onVirtualizerEnabledChange) = rememberPreference(
-        VirtualizerEnabledKey,
-        defaultValue = false
-    )
-    val (virtualizerStrength, onVirtualizerStrengthChange) = rememberPreference(
-        VirtualizerStrengthKey,
-        defaultValue = 500f
-    )
-
     Column(
         Modifier
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
@@ -233,96 +207,6 @@ fun PlayerSettings(
             checked = audioOffload,
             onCheckedChange = onAudioOffloadChange
         )
-
-        PreferenceGroupTitle(
-            title = stringResource(R.string.audio_enhancement)
-        )
-
-        SwitchPreference(
-            title = { Text(stringResource(R.string.bass_boost)) },
-            description = stringResource(R.string.bass_boost_desc),
-            icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-            checked = bassBoostEnabled,
-            onCheckedChange = onBassBoostEnabledChange
-        )
-
-        if (bassBoostEnabled) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = stringResource(R.string.bass_boost_strength),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = bassBoostStrength.roundToInt().toString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Slider(
-                    value = bassBoostStrength,
-                    onValueChange = onBassBoostStrengthChange,
-                    valueRange = 0f..1000f,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        SwitchPreference(
-            title = { Text(stringResource(R.string.equalizer_hq)) },
-            description = stringResource(R.string.equalizer_hq_desc),
-            icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-            checked = equalizerEnabled,
-            onCheckedChange = onEqualizerEnabledChange
-        )
-
-        SwitchPreference(
-            title = { Text(stringResource(R.string.virtualizer)) },
-            description = stringResource(R.string.virtualizer_desc),
-            icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-            checked = virtualizerEnabled,
-            onCheckedChange = onVirtualizerEnabledChange
-        )
-
-        if (virtualizerEnabled) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = stringResource(R.string.virtualizer_strength),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = virtualizerStrength.roundToInt().toString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Slider(
-                    value = virtualizerStrength,
-                    onValueChange = onVirtualizerStrengthChange,
-                    valueRange = 0f..1000f,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
 
         SwitchPreference(
             title = { Text(stringResource(R.string.seek_seconds_addup)) },

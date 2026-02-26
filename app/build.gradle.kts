@@ -18,8 +18,8 @@ android {
         applicationId = "nirmal.auric.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 400
-        versionName = "4.0.0"
+        versionCode = 401
+        versionName = "4.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -93,8 +93,7 @@ android {
             )
         }
         debug {
-            applicationIdSuffix = ".debug"
-            isDebuggable = true
+            isDebuggable = false
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -153,6 +152,16 @@ android {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Exclude baseline profiles from debug APKs to prevent INSTALL_BASELINE_PROFILE_FAILED
+afterEvaluate {
+    tasks.matching { it.name.matches(Regex("compile.*Debug.*ArtProfile")) }.configureEach {
+        outputs.upToDateWhen { false }
+        doLast {
+            outputs.files.asFileTree.forEach { it.delete() }
+        }
+    }
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {

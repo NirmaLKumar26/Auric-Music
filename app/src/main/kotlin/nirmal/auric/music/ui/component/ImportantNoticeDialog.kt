@@ -40,7 +40,7 @@ fun ImportantNoticeDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "It's hard to maintain this kind of app, and due to uncertain reasons, the Discord server has been deleted.",
+                    text = "It's hard to maintain this kind of app",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(

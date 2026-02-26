@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +56,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -868,6 +870,19 @@ fun BottomSheetPlayer(
 
             Spacer(Modifier.height(12.dp))
 
+            // Waveform progress visualizer (new design only)
+            if (useNewPlayerDesign) {
+                PlayerWaveform(
+                    position = sliderPosition ?: position,
+                    duration = duration,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .padding(horizontal = PlayerHorizontalPadding),
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
             when (sliderStyle) {
                 SliderStyle.DEFAULT -> {
                     Slider(
@@ -968,90 +983,85 @@ fun BottomSheetPlayer(
             Spacer(Modifier.height(12.dp))
 
             if (useNewPlayerDesign) {
-                BoxWithConstraints(
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val maxW = maxWidth
-                    val playButtonHeight = maxW / 6f
-                    val playButtonWidth = playButtonHeight * 1.6f
-                    val sideButtonHeight = playButtonHeight * 0.8f
-                    val sideButtonWidth = sideButtonHeight * 1.3f
-
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                    // Previous — ghost circle
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(textButtonColor.copy(alpha = 0.12f))
+                            .clickable(enabled = canSkipPrevious) {
+                                playerConnection.seekToPrevious()
+                            }
                     ) {
-
-                        FilledTonalIconButton(
-                            onClick = playerConnection::seekToPrevious,
-                            enabled = canSkipPrevious,
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = textButtonColor,
-                                contentColor = iconButtonColor
+                        Image(
+                            painter = painterResource(R.drawable.skip_previous),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(
+                                textButtonColor.copy(alpha = if (canSkipPrevious) 1f else 0.4f)
                             ),
-                            modifier = Modifier
-                                .size(width = sideButtonWidth, height = sideButtonHeight)
-                                .clip(RoundedCornerShape(32.dp))
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.skip_previous),
-                                contentDescription = null,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(Modifier.width(24.dp))
 
-                        FilledIconButton(
-                            onClick = {
+                    // Play / Pause — large coral circle
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(84.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFF3654))
+                            .clickable {
                                 if (playbackState == STATE_ENDED) {
                                     playerConnection.player.seekTo(0, 0)
                                     playerConnection.player.playWhenReady = true
                                 } else {
                                     playerConnection.player.togglePlayPause()
                                 }
-                            },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = textButtonColor,
-                                contentColor = iconButtonColor
+                            }
+                    ) {
+                        Image(
+                            painter = painterResource(
+                                when {
+                                    playbackState == STATE_ENDED -> R.drawable.replay
+                                    isPlaying -> R.drawable.pause
+                                    else -> R.drawable.play
+                                }
                             ),
-                            modifier = Modifier
-                                .size(width = playButtonWidth, height = playButtonHeight)
-                                .clip(RoundedCornerShape(32.dp))
-                        ) {
-                            Icon(
-                                painter = painterResource(
-                                    when {
-                                        playbackState == STATE_ENDED -> R.drawable.replay
-                                        isPlaying -> R.drawable.pause
-                                        else -> R.drawable.play
-                                    }
-                                ),
-                                contentDescription = null,
-                                modifier = Modifier.size(42.dp)
-                            )
-                        }
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(Color.White),
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(Modifier.width(24.dp))
 
-                        FilledTonalIconButton(
-                            onClick = playerConnection::seekToNext,
-                            enabled = canSkipNext,
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = textButtonColor,
-                                contentColor = iconButtonColor
+                    // Next — ghost circle
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(textButtonColor.copy(alpha = 0.12f))
+                            .clickable(enabled = canSkipNext) {
+                                playerConnection.seekToNext()
+                            }
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.skip_next),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(
+                                textButtonColor.copy(alpha = if (canSkipNext) 1f else 0.4f)
                             ),
-                            modifier = Modifier
-                                .size(width = sideButtonWidth, height = sideButtonHeight)
-                                .clip(RoundedCornerShape(32.dp))
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.skip_next),
-                                contentDescription = null,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
                 }
             } else {
@@ -2374,4 +2384,47 @@ fun BottomSheetPlayer(
                 } // Close spacing Column
             } // Close main Column
         } // Close Audio Routing BottomSheet and Player BottomSheet
+}
+
+/**
+ * Waveform progress indicator used by the new player design.
+ * Bars to the left of the current playback position are fully opaque;
+ * bars to the right are dimmed.
+ */
+@Composable
+private fun PlayerWaveform(
+    position: Long,
+    duration: Long,
+    modifier: Modifier = Modifier,
+    playedColor: Color = Color.White,
+    unplayedColor: Color = Color.White.copy(alpha = 0.28f),
+) {
+    val numBars = 32
+    val progress = if (duration > 0) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
+    val playedBars = (numBars * progress).toInt()
+
+    val barHeights = remember {
+        listOf(
+            0.35f, 0.60f, 0.45f, 0.80f, 0.50f, 0.90f, 0.35f, 0.70f,
+            0.55f, 0.42f, 0.65f, 0.85f, 0.40f, 0.72f, 0.52f, 0.88f,
+            0.33f, 0.62f, 0.78f, 0.48f, 0.67f, 0.82f, 0.38f, 0.70f,
+            0.55f, 0.43f, 0.63f, 0.80f, 0.47f, 0.68f, 0.42f, 0.60f,
+        )
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        barHeights.forEachIndexed { i, heightFraction ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(heightFraction)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (i < playedBars) playedColor else unplayedColor)
+            )
+        }
+    }
 }

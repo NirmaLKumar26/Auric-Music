@@ -193,6 +193,7 @@ import nirmal.auric.music.ui.component.AccountSettingsDialog
 import nirmal.auric.music.ui.component.BottomSheetMenu
 import nirmal.auric.music.ui.component.BottomSheetPage
 import nirmal.auric.music.ui.component.IconButton
+import nirmal.auric.music.ui.component.AutoUpdateDialog
 import nirmal.auric.music.ui.component.ImportantNoticeDialog
 import nirmal.auric.music.ui.component.LocalBottomSheetPageState
 import nirmal.auric.music.ui.component.LocalMenuState
@@ -254,6 +255,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var navController: NavHostController
     private var pendingIntent: Intent? = null
     private var latestVersionName by mutableStateOf(BuildConfig.VERSION_NAME)
+    private var latestApkUrl by mutableStateOf("")
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
 
@@ -444,8 +446,22 @@ class MainActivity : ComponentActivity() {
                             val tagName = json.getString("tag_name")
                             if (tagName.isNotEmpty()) {
                                 val version = tagName.removePrefix("v")
+                                // Parse APK download URL from release assets
+                                var apkDownloadUrl = ""
+                                val assets = json.optJSONArray("assets")
+                                if (assets != null) {
+                                    for (i in 0 until assets.length()) {
+                                        val asset = assets.getJSONObject(i)
+                                        val name = asset.optString("name", "")
+                                        if (name.endsWith(".apk", ignoreCase = true)) {
+                                            apkDownloadUrl = asset.optString("browser_download_url", "")
+                                            break
+                                        }
+                                    }
+                                }
                                 withContext(Dispatchers.Main) {
                                     latestVersionName = version
+                                    latestApkUrl = apkDownloadUrl
                                     // Show notification if new version is available
                                     if (version != BuildConfig.VERSION_NAME) {
                                         showUpdateNotification(this@MainActivity, version)
@@ -1777,6 +1793,19 @@ class MainActivity : ComponentActivity() {
                                 }
                                 showNoticeDialog = false
                             }
+                        )
+                    }
+
+                    // Auto-update dialog: shown once when a new version is detected on startup
+                    var showAutoUpdateDialog by remember { mutableStateOf(true) }
+                    if (showAutoUpdateDialog &&
+                        latestVersionName != BuildConfig.VERSION_NAME &&
+                        latestApkUrl.isNotEmpty()
+                    ) {
+                        AutoUpdateDialog(
+                            version = latestVersionName,
+                            apkUrl = latestApkUrl,
+                            onDismiss = { showAutoUpdateDialog = false },
                         )
                     }
 

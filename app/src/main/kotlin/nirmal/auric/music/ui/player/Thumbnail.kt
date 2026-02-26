@@ -84,7 +84,15 @@ import nirmal.auric.music.constants.ThumbnailCornerRadius
 import nirmal.auric.music.constants.DoubleTapToLikeKey
 import nirmal.auric.music.utils.rememberEnumPreference
 import nirmal.auric.music.utils.rememberPreference
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -111,7 +119,23 @@ fun Thumbnail(
     val doubleTapToLike by rememberPreference(DoubleTapToLikeKey, false)
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
-    
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+
+    // Vinyl disc rotation — accumulates while playing, freezes on pause
+    val vinylRotationAnim = remember { Animatable(0f) }
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            while (isActive) {
+                vinylRotationAnim.animateTo(
+                    vinylRotationAnim.value + 360f,
+                    animationSpec = tween(durationMillis = 12000, easing = LinearEasing)
+                )
+            }
+        } else {
+            vinylRotationAnim.stop()
+        }
+    }
+
     // Player background style for consistent theming
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -339,12 +363,26 @@ fun Thumbnail(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
+                                val discSize = containerMaxWidth - (PlayerHorizontalPadding * 2)
                                 Box(
-                                    modifier = Modifier
-                                        .size(containerMaxWidth - (PlayerHorizontalPadding * 2))
-                                        .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.size(discSize)
                                 ) {
-                                    // Main image
+                                    // Static vinyl base with groove rings
+                                    Canvas(modifier = Modifier.size(discSize)) {
+                                        val r = size.minDimension / 2f
+                                        drawCircle(color = Color(0xFF0E0E0E), radius = r)
+                                        for (i in 1..9) {
+                                            drawCircle(
+                                                color = Color(0xFF252525),
+                                                radius = r * (0.97f - i * 0.04f),
+                                                style = Stroke(width = 1.5f)
+                                            )
+                                        }
+                                        // Center label area
+                                        drawCircle(color = Color(0xFF1A1A1A), radius = r * 0.38f)
+                                    }
+                                    // Rotating album art
                                     AsyncImage(
                                         model = coil3.request.ImageRequest.Builder(LocalContext.current)
                                             .data(item.mediaMetadata.artworkUri?.toString())
@@ -353,9 +391,19 @@ fun Thumbnail(
                                             .networkCachePolicy(coil3.request.CachePolicy.ENABLED)
                                             .build(),
                                         contentDescription = null,
-                                        contentScale = ContentScale.Fit,
+                                        contentScale = ContentScale.Crop,
                                         error = painterResource(R.drawable.auric_logo),
-                                        modifier = Modifier.fillMaxSize()
+                                        modifier = Modifier
+                                            .size(discSize * 0.72f)
+                                            .clip(CircleShape)
+                                            .graphicsLayer { rotationZ = vinylRotationAnim.value }
+                                    )
+                                    // Static center spindle
+                                    Box(
+                                        modifier = Modifier
+                                            .size(discSize * 0.065f)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF0E0E0E))
                                     )
                                 }
                             }
