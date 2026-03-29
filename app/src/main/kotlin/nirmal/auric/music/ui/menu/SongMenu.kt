@@ -2,6 +2,10 @@
 
 import android.content.Intent
 import android.content.res.Configuration
+import android.media.RingtoneManager
+import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -64,6 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadRequest
@@ -100,6 +105,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun SongMenu(
@@ -414,6 +420,29 @@ fun SongMenu(
                                 }
                                 context.startActivity(Intent.createChooser(intent, null))
                             }
+                        ),
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.link),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = "Song.link",
+                            onClick = {
+                                onDismiss()
+                                val intent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "https://song.link/https://music.youtube.com/watch?v=${song.id}"
+                                    )
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Share via Song.link"))
+                            }
                         )
                     ),
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
@@ -624,6 +653,61 @@ fun SongMenu(
                     modifier = Modifier.clickable {
                         onDismiss()
                         cacheViewModel.removeSongFromCache(song.id)
+                    }
+                )
+            }
+        }
+        if (song.song.isLocal && !song.song.localPath.isNullOrBlank()) {
+            item {
+                ListItem(
+                    headlineContent = { Text(text = "Set as ringtone") },
+                    leadingContent = {
+                        Icon(
+                            painter = painterResource(R.drawable.music_note),
+                            contentDescription = null,
+                        )
+                    },
+                    modifier = Modifier.clickable {
+                        val localPath = song.song.localPath
+                        if (localPath.isNullOrBlank()) {
+                            Toast.makeText(context, "Local file not available", Toast.LENGTH_SHORT).show()
+                            return@clickable
+                        }
+
+                        val localFile = File(localPath)
+                        if (!localFile.exists()) {
+                            Toast.makeText(context, "Audio file not found", Toast.LENGTH_SHORT).show()
+                            return@clickable
+                        }
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(context)) {
+                            val settingsIntent = Intent(
+                                Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                                "package:${context.packageName}".toUri()
+                            )
+                            settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(settingsIntent)
+                            Toast.makeText(context, "Grant system settings permission to set ringtone", Toast.LENGTH_LONG).show()
+                            return@clickable
+                        }
+
+                        runCatching {
+                            val contentUri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.FileProvider",
+                                localFile
+                            )
+                            RingtoneManager.setActualDefaultRingtoneUri(
+                                context,
+                                RingtoneManager.TYPE_RINGTONE,
+                                contentUri
+                            )
+                        }.onSuccess {
+                            Toast.makeText(context, "Ringtone updated", Toast.LENGTH_SHORT).show()
+                            onDismiss()
+                        }.onFailure {
+                            Toast.makeText(context, "Unable to set ringtone", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             }

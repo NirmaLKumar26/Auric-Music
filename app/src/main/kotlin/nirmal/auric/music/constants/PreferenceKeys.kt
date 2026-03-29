@@ -20,6 +20,7 @@ val SwipeToSongKey = booleanPreferencesKey("SwipeToSong")
 val SwipeToRemoveSongKey = booleanPreferencesKey("SwipeToRemoveSong")
 val UseNewPlayerDesignKey= booleanPreferencesKey("useNewPlayerDesign")
 val UseNewMiniPlayerDesignKey = booleanPreferencesKey("useNewMiniPlayerDesign")
+val PureBlackMiniPlayerKey = booleanPreferencesKey("pureBlackMiniPlayer")
 val HidePlayerThumbnailKey = booleanPreferencesKey("hidePlayerThumbnail")
 val SeekExtraSeconds = booleanPreferencesKey("seekExtraSeconds")
 
@@ -36,6 +37,8 @@ val ContentCountryKey = stringPreferencesKey("contentCountry")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrclib")
 val EnableSimpMusicKey = booleanPreferencesKey("enableSimpMusic")
+val EnableBetterLyricsKey = booleanPreferencesKey("enableBetterLyrics")
+val EnableLyricsPlus = booleanPreferencesKey("enableLyricsPlus")
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
 val ProxyUrlKey = stringPreferencesKey("proxyUrl")
@@ -56,6 +59,10 @@ enum class AudioQuality {
     LOW,
 }
 val AudioOffload = booleanPreferencesKey("enableOffload")
+val CrossfadeEnabledKey = booleanPreferencesKey("crossfadeEnabled")
+val CrossfadeDurationKey = floatPreferencesKey("crossfadeDurationFloat")
+val CrossfadeGaplessKey = booleanPreferencesKey("crossfadeGapless")
+val TTSAnnouncementEnabledKey = booleanPreferencesKey("ttsAnnouncementEnabled")
 
 // Audio enhancement effects
 val BassBoostEnabledKey = booleanPreferencesKey("bassBoostEnabled")
@@ -73,6 +80,7 @@ val AutoDownloadOnLikeKey = booleanPreferencesKey("autoDownloadOnLike")
 val SimilarContent = booleanPreferencesKey("similarContent")
 val AutoSkipNextOnErrorKey = booleanPreferencesKey("autoSkipNextOnError")
 val StopMusicOnTaskClearKey = booleanPreferencesKey("stopMusicOnTaskClear")
+val ForceStopOnTaskClearKey = booleanPreferencesKey("forceStopOnTaskClear")
 
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
@@ -282,6 +290,8 @@ enum class PreferredLyricsProvider {
     LRCLIB,
     SIMPMUSIC,
     KUGOU,
+    BETTERLYRICS,
+    LYRICSPLUS,
 }
 
 enum class PlayerButtonsStyle {

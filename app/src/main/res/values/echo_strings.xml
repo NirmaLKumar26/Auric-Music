@@ -93,6 +93,8 @@
     <string name="gradient">Music Accent</string>
     <string name="new_player_design">New player design</string>
     <string name="new_mini_player_design">New mini player design</string>
+    <string name="pure_black_mini_player">Pure Black Mini Player</string>
+    <string name="pure_black_mini_player_desc">Use pure black background for mini player</string>
     <string name="player_background_blur">Blur</string>
     <string name="player_buttons_style">Player button colors</string>
     <string name="default_style">Default</string>
@@ -161,6 +163,7 @@
 
     <string name="import_online">Import a \"m3u\" playlists</string>
     <string name="import_csv">Import a \"csv\" playlists</string>
+    <string name="import_from_spotify">Import from Spotify</string>
     <string name="playlist_add_local_to_synced_note">Note: Adding local songs to synced/remote playlists is unsupported. Any other combination is valid</string>
 
     <string name="auto_download_on_like">Auto download on like</string>

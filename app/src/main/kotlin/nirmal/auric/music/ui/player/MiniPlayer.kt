@@ -74,6 +74,7 @@ import nirmal.auric.music.LocalDatabase
 import nirmal.auric.music.LocalPlayerConnection
 import nirmal.auric.music.R
 import nirmal.auric.music.constants.MiniPlayerHeight
+import nirmal.auric.music.constants.PureBlackMiniPlayerKey
 import nirmal.auric.music.constants.SwipeSensitivityKey
 import nirmal.auric.music.constants.ThumbnailCornerRadius
 import nirmal.auric.music.constants.UseNewMiniPlayerDesignKey
@@ -82,7 +83,9 @@ import nirmal.auric.music.extensions.togglePlayPause
 import nirmal.auric.music.models.MediaMetadata
 import nirmal.auric.music.utils.rememberPreference
 import nirmal.auric.music.ui.theme.PlayerColorExtractor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
@@ -156,6 +159,7 @@ private fun NewMiniPlayer(
     val coroutineScope = rememberCoroutineScope()
     val swipeSensitivity by rememberPreference(SwipeSensitivityKey, 0.73f)
     val swipeThumbnail by rememberPreference(nirmal.auric.music.constants.SwipeThumbnailKey, true)
+    val pureBlackMiniPlayer by rememberPreference(PureBlackMiniPlayerKey, false)
 
     val configuration = LocalConfiguration.current
     val isTabletLandscape = configuration.screenWidthDp >= 600 &&
@@ -174,10 +178,12 @@ private fun NewMiniPlayer(
                     .build()
                 val result = context.imageLoader.execute(request)
                 result.image?.let { image ->
-                    val bitmap = image.toBitmap()
-                    val palette = Palette.from(bitmap)
-                        .maximumColorCount(32)
-                        .generate()
+                    val palette = withContext(Dispatchers.Default) {
+                        val bitmap = image.toBitmap()
+                        Palette.from(bitmap)
+                            .maximumColorCount(32)
+                            .generate()
+                    }
                     gradientColors = PlayerColorExtractor.extractGradientColors(
                         palette = palette,
                         fallbackColor = Color.Black.toArgb()
@@ -312,7 +318,9 @@ private fun NewMiniPlayer(
                 .offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }
                 .clip(RoundedCornerShape(32.dp)) // Clip first for perfect rounded corners
                 .then(
-                    if (gradientColors.isNotEmpty()) {
+                    if (pureBlack || pureBlackMiniPlayer) {
+                        Modifier.background(Color.Black)
+                    } else if (gradientColors.isNotEmpty()) {
                         Modifier.background(
                             Brush.horizontalGradient(
                                 colors = gradientColors
@@ -580,6 +588,7 @@ private fun LegacyMiniPlayer(
     val coroutineScope = rememberCoroutineScope()
     val swipeSensitivity by rememberPreference(SwipeSensitivityKey, 0.73f)
     val swipeThumbnail by rememberPreference(nirmal.auric.music.constants.SwipeThumbnailKey, true)
+    val pureBlackMiniPlayer by rememberPreference(PureBlackMiniPlayerKey, false)
 
     // NEW: Get screen configuration to determine if it's a tablet in landscape mode.
     val configuration = LocalConfiguration.current
@@ -599,10 +608,12 @@ private fun LegacyMiniPlayer(
                     .build()
                 val result = context.imageLoader.execute(request)
                 result.image?.let { image ->
-                    val bitmap = image.toBitmap()
-                    val palette = Palette.from(bitmap)
-                        .maximumColorCount(32)
-                        .generate()
+                    val palette = withContext(Dispatchers.Default) {
+                        val bitmap = image.toBitmap()
+                        Palette.from(bitmap)
+                            .maximumColorCount(32)
+                            .generate()
+                    }
                     gradientColors = PlayerColorExtractor.extractGradientColors(
                         palette = palette,
                         fallbackColor = Color.Black.toArgb()
@@ -645,19 +656,16 @@ private fun LegacyMiniPlayer(
             // preventing sharp edges when the width is reduced.
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .then(
-                if (gradientColors.isNotEmpty()) {
+                if (pureBlack || pureBlackMiniPlayer) {
+                    Modifier.background(Color.Black)
+                } else if (gradientColors.isNotEmpty()) {
                     Modifier.background(
                         Brush.verticalGradient(
                             colors = gradientColors
                         )
                     )
                 } else {
-                    Modifier.background(
-                        if (pureBlack)
-                            Color.Black
-                        else
-                            MaterialTheme.colorScheme.surfaceContainer
-                    )
+                    Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
                 }
             )
             .let { baseModifier ->

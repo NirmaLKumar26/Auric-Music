@@ -132,9 +132,15 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.random.Random
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -517,49 +523,29 @@ fun HomeScreen(
                     }
 
                     item(key = "quick_picks_list") {
-                        LazyRow(
-                            contentPadding = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
-                                .asPaddingValues(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateItem()
-                        ) {
-                            items(
-                                items = quickPicks.distinctBy { it.id },
-                                key = { it.id }
-                            ) { originalSong ->
-                                val song by database.song(originalSong.id)
-                                    .collectAsState(initial = originalSong)
-
-                                SongGridItem(
-                                    song = song!!,
-                                    isActive = song!!.id == mediaMetadata?.id,
-                                    isPlaying = isPlaying,
-                                    modifier = Modifier
-                                        .combinedClickable(
-                                            onClick = {
-                                                if (song!!.id == mediaMetadata?.id) {
-                                                    playerConnection.player.togglePlayPause()
-                                                } else {
-                                                    playerConnection.playQueue(
-                                                        YouTubeQueue.radio(song!!.toMediaMetadata())
-                                                    )
-                                                }
-                                            },
-                                            onLongClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                menuState.show {
-                                                    SongMenu(
-                                                        originalSong = song!!,
-                                                        navController = navController,
-                                                        onDismiss = menuState::dismiss
-                                                    )
-                                                }
-                                            }
-                                        )
-                                )
-                            }
-                        }
+                        FeaturedQuickPicksCarousel(
+                            songs = quickPicks,
+                            activeMediaId = mediaMetadata?.id,
+                            isPlaying = isPlaying,
+                            onSongClick = { song ->
+                                if (song.id == mediaMetadata?.id) {
+                                    playerConnection.player.togglePlayPause()
+                                } else {
+                                    playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
+                                }
+                            },
+                            onSongLongClick = { song ->
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menuState.show {
+                                    SongMenu(
+                                        originalSong = song,
+                                        navController = navController,
+                                        onDismiss = menuState::dismiss
+                                    )
+                                }
+                            },
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
 
@@ -963,5 +949,180 @@ fun HomeScreen(
                 .align(Alignment.TopCenter)
                 .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
         )
+    }
+}
+
+@Composable
+private fun FeaturedQuickPicksCarousel(
+    songs: List<Song>,
+    activeMediaId: String?,
+    isPlaying: Boolean,
+    onSongClick: (Song) -> Unit,
+    onSongLongClick: (Song) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val featuredSongs = remember(songs) { songs.distinctBy { it.id }.take(5) }
+    if (featuredSongs.isEmpty()) return
+
+    val pagerState = rememberPagerState(pageCount = { featuredSongs.size })
+    val horizontalPadding = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontalPadding)
+            .padding(top = 4.dp, bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp),
+        ) { page ->
+            val song = featuredSongs[page]
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp))
+                    .combinedClickable(
+                        onClick = { onSongClick(song) },
+                        onLongClick = { onSongLongClick(song) },
+                    ),
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(song.thumbnailUrl)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.65f),
+                                ),
+                            )
+                        )
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        text = song.title,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = song.artists.joinToString { it.name },
+                        color = Color.White.copy(alpha = 0.86f),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                    )
+                }
+
+                if (song.id == activeMediaId) {
+                    Text(
+                        text = if (isPlaying) "Playing" else "Paused",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            repeat(pagerState.pageCount) { index ->
+                val selected = index == pagerState.currentPage
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(if (selected) 16.dp else 7.dp, 7.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+                        )
+                )
+            }
+        }
+
+        val compactStripSongs = remember(songs) { songs.distinctBy { it.id }.take(3) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            compactStripSongs.forEach { song ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(90.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                        .combinedClickable(
+                            onClick = { onSongClick(song) },
+                            onLongClick = { onSongLongClick(song) },
+                        )
+                        .padding(7.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AsyncImage(
+                            model = song.thumbnailUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(70.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = song.title,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = song.artists.firstOrNull()?.name ?: "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                textAlign = TextAlign.Start,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }

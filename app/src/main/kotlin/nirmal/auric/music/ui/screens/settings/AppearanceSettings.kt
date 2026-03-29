@@ -74,6 +74,7 @@ import nirmal.auric.music.constants.UseNewMiniPlayerDesignKey
 import nirmal.auric.music.constants.PlayerBackgroundStyle
 import nirmal.auric.music.constants.PlayerBackgroundStyleKey
 import nirmal.auric.music.constants.PureBlackKey
+import nirmal.auric.music.constants.PureBlackMiniPlayerKey
 import nirmal.auric.music.constants.PlayerButtonsStyle
 import nirmal.auric.music.constants.PlayerButtonsStyleKey
 import nirmal.auric.music.constants.SliderStyle
@@ -132,6 +133,10 @@ fun AppearanceSettings(
     // Pure black removed - handled by theme
     
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
+    val (pureBlackMiniPlayer, onPureBlackMiniPlayerChange) = rememberPreference(
+        PureBlackMiniPlayerKey,
+        defaultValue = false,
+    )
 
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberEnumPreference(
         DefaultOpenTabKey,
@@ -445,6 +450,14 @@ fun AppearanceSettings(
             onClick = {
                 showSliderOptionDialog = true
             },
+        )
+
+        SwitchPreference(
+            title = { Text(stringResource(R.string.pure_black_mini_player)) },
+            description = stringResource(R.string.pure_black_mini_player_desc),
+            icon = { Icon(painterResource(R.drawable.dark_mode), null) },
+            checked = pureBlackMiniPlayer,
+            onCheckedChange = onPureBlackMiniPlayerChange,
         )
 
         SwitchPreference(

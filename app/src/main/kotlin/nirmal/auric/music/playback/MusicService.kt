@@ -76,7 +76,11 @@ import nirmal.auric.music.constants.AudioQualityKey
 import nirmal.auric.music.constants.AutoDownloadOnLikeKey
 import nirmal.auric.music.constants.AutoLoadMoreKey
 import nirmal.auric.music.constants.AutoSkipNextOnErrorKey
+import nirmal.auric.music.constants.CrossfadeDurationKey
+import nirmal.auric.music.constants.CrossfadeEnabledKey
+import nirmal.auric.music.constants.CrossfadeGaplessKey
 import nirmal.auric.music.constants.DisableLoadMoreWhenRepeatAllKey
+import nirmal.auric.music.constants.ForceStopOnTaskClearKey
 import nirmal.auric.music.constants.HideExplicitKey
 import nirmal.auric.music.constants.HistoryDuration
 import nirmal.auric.music.constants.MediaSessionConstants.CommandToggleLike
@@ -91,6 +95,7 @@ import nirmal.auric.music.constants.ShowLyricsKey
 import nirmal.auric.music.constants.SimilarContent
 import nirmal.auric.music.constants.SkipSilenceKey
 import nirmal.auric.music.constants.SponsorBlockEnabledKey
+import nirmal.auric.music.constants.TTSAnnouncementEnabledKey
 import nirmal.auric.music.api.SponsorBlockService
 import android.widget.Toast
 import nirmal.auric.music.constants.StopMusicOnTaskClearKey
@@ -123,6 +128,7 @@ import nirmal.auric.music.playback.queues.filterExplicit
 import nirmal.auric.music.utils.CoilBitmapLoader
 import nirmal.auric.music.utils.NetworkConnectivityObserver
 import nirmal.auric.music.utils.SyncUtils
+import nirmal.auric.music.utils.TTSManager
 import nirmal.auric.music.utils.YTPlayerUtils
 import nirmal.auric.music.utils.dataStore
 import nirmal.auric.music.utils.enumPreference
@@ -172,6 +178,9 @@ class MusicService :
 
     @Inject
     lateinit var syncUtils: SyncUtils
+
+    @Inject
+    lateinit var ttsManager: TTSManager
 
     @Inject
     lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
@@ -240,6 +249,16 @@ class MusicService :
     val automixItems = MutableStateFlow<List<MediaItem>>(emptyList())
 
     private var consecutivePlaybackErr = 0
+
+    // Crossfade state
+    private var crossfadeEnabled = false
+    private var crossfadeDuration = 3000L
+    private var crossfadeGapless = false
+    private var crossfadeTriggerJob: Job? = null
+    private var crossfadeOutJob: Job? = null
+    private var crossfadeInJob: Job? = null
+    private var isCrossfadingIn = false
+    private var fadingPlayer: ExoPlayer? = null
 
     private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
 
@@ -319,6 +338,20 @@ class MusicService :
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         setupAudioFocusRequest()
+
+        // Initialize crossfade settings
+        crossfadeEnabled = dataStore.get(CrossfadeEnabledKey, false)
+        crossfadeDuration = ((dataStore.get(CrossfadeDurationKey, 3f)) * 1000).toLong()
+        crossfadeGapless = dataStore.get(CrossfadeGaplessKey, false)
+
+        // Watch crossfade preference changes
+        scope.launch {
+            dataStore.data.collect { prefs ->
+                crossfadeEnabled = prefs[CrossfadeEnabledKey] ?: false
+                crossfadeDuration = ((prefs[CrossfadeDurationKey] ?: 3f) * 1000).toLong()
+                crossfadeGapless = prefs[CrossfadeGaplessKey] ?: false
+            }
+        }
         
         // Initialize Google Cast handler
         castConnectionHandler = CastConnectionHandler(this, scope, this)
@@ -475,7 +508,7 @@ class MusicService :
         
         combine(
             currentMediaMetadata.distinctUntilChangedBy { it?.id },
-            dataStore.data.map { it[SponsorBlockEnabledKey] ?: true }.distinctUntilChanged()
+            dataStore.data.map { it[SponsorBlockEnabledKey] ?: false }.distinctUntilChanged()
         ) { media, enabled ->
              media to enabled
         }.collectLatest(scope) { (media, enabled) ->
@@ -1208,6 +1241,24 @@ class MusicService :
 
         setupLoudnessEnhancer()
 
+        // Schedule crossfade for next transition
+        scheduleCrossfade()
+
+        // TTS Song Announcement
+        if (dataStore.get(TTSAnnouncementEnabledKey, false) && mediaItem != null) {
+            val metadata = player.currentMetadata
+            val title = metadata?.title ?: ""
+            val artist = metadata?.artists?.firstOrNull()?.name ?: ""
+            if (title.isNotEmpty()) {
+                val announcement = if (artist.isNotEmpty()) {
+                    "Now playing $title by $artist"
+                } else {
+                    "Now playing $title"
+                }
+                ttsManager.speak(announcement)
+            }
+        }
+
         if (player.playWhenReady && player.playbackState == Player.STATE_READY) {
             // Player is ready
         }
@@ -1744,10 +1795,209 @@ class MusicService :
         }
     }
 
+    // ===== Crossfade =====
+    private fun scheduleCrossfade() {
+        crossfadeTriggerJob?.cancel()
+
+        // Handoff: main player just transitioned to the next song after the crossfade window
+        if (isCrossfadingIn) {
+            isCrossfadingIn = false
+            crossfadeOutJob?.cancel()
+            val fp = fadingPlayer
+            if (fp != null && crossfadeEnabled) {
+                val syncPos = try { fp.currentPosition } catch (_: Exception) { 0L }
+                try {
+                    player.volume = playerVolume.value
+                    if (syncPos > 500L) player.seekTo(syncPos)
+                } catch (_: Exception) {
+                }
+                scope.launch {
+                    delay(200)
+                    try {
+                        fp.stop()
+                        fp.release()
+                    } catch (_: Exception) {
+                    }
+                }
+                fadingPlayer = null
+            } else {
+                val targetVolume = playerVolume.value
+                crossfadeInJob?.cancel()
+                crossfadeInJob = scope.launch {
+                    val steps = 50
+                    val stepDuration = (crossfadeDuration / steps).coerceAtLeast(10L)
+                    try {
+                        player.volume = 0f
+                    } catch (_: Exception) {
+                    }
+                    for (i in 1..steps) {
+                        if (!isActive) return@launch
+                        delay(stepDuration)
+                        val progress = i.toFloat() / steps
+                        try {
+                            player.volume = targetVolume * progress
+                        } catch (_: Exception) {
+                        }
+                    }
+                    try {
+                        player.volume = targetVolume
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
+
+        if (!crossfadeEnabled || !player.hasNextMediaItem()) return
+        if (crossfadeGapless && isNextItemGapless()) return
+
+        val duration = player.duration
+        if (duration <= 0 || duration == C.TIME_UNSET) return
+        if (duration < crossfadeDuration * 2) return
+
+        val triggerAt = duration - crossfadeDuration
+
+        crossfadeTriggerJob = scope.launch {
+            while (isActive) {
+                delay(300)
+                if (player.isPlaying && player.currentPosition >= triggerAt) break
+            }
+            if (isActive) startCrossfadeOut()
+        }
+    }
+
+    private fun startCrossfadeOut() {
+        crossfadeOutJob?.cancel()
+        crossfadeInJob?.cancel()
+        fadingPlayer?.let {
+            try {
+                it.stop()
+                it.release()
+            } catch (_: Exception) {
+            }
+        }
+        fadingPlayer = null
+
+        val targetVolume = playerVolume.value
+        val steps = 50
+        val stepDuration = (crossfadeDuration / steps).coerceAtLeast(10L)
+        isCrossfadingIn = true
+
+        val nextIndex = player.nextMediaItemIndex
+        if (nextIndex != C.INDEX_UNSET) {
+            try {
+                val nextItem = player.getMediaItemAt(nextIndex)
+                val fp = ExoPlayer.Builder(this)
+                    .setMediaSourceFactory(createMediaSourceFactory())
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(C.USAGE_MEDIA)
+                            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                            .build(),
+                        false
+                    )
+                    .build()
+                fp.volume = 0f
+                fp.setMediaItem(nextItem)
+                fp.prepare()
+                fp.playWhenReady = true
+                fadingPlayer = fp
+
+                crossfadeInJob = scope.launch {
+                    var waited = 0L
+                    while (isActive && waited < 3000L) {
+                        delay(100)
+                        waited += 100
+                        if (fp.playbackState == Player.STATE_READY || fp.isPlaying) break
+                    }
+                    for (i in 1..steps) {
+                        if (!isActive) return@launch
+                        delay(stepDuration)
+                        val progress = i.toFloat() / steps
+                        try {
+                            fp.volume = targetVolume * progress
+                        } catch (_: Exception) {
+                        }
+                    }
+                    try {
+                        fp.volume = targetVolume
+                    } catch (_: Exception) {
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        crossfadeOutJob = scope.launch {
+            for (i in 1..steps) {
+                if (!isActive) return@launch
+                delay(stepDuration)
+                if (!player.isPlaying) {
+                    isCrossfadingIn = false
+                    try {
+                        player.volume = targetVolume
+                    } catch (_: Exception) {
+                    }
+                    fadingPlayer?.let {
+                        try {
+                            it.stop()
+                            it.release()
+                        } catch (_: Exception) {
+                        }
+                    }
+                    fadingPlayer = null
+                    crossfadeInJob?.cancel()
+                    return@launch
+                }
+                val progress = i.toFloat() / steps
+                try {
+                    player.volume = targetVolume * (1f - progress)
+                } catch (_: Exception) {
+                }
+            }
+            try {
+                player.volume = 0f
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun isNextItemGapless(): Boolean {
+        if (!player.hasNextMediaItem()) return false
+        val currentAlbum = player.currentMediaItem?.mediaMetadata?.albumTitle?.toString()
+        val nextIndex = player.nextMediaItemIndex
+        if (nextIndex == C.INDEX_UNSET) return false
+        val nextAlbum = player.getMediaItemAt(nextIndex).mediaMetadata.albumTitle?.toString()
+        return !currentAlbum.isNullOrEmpty() && currentAlbum == nextAlbum
+    }
+
+    private fun cleanupCrossfade() {
+        crossfadeTriggerJob?.cancel()
+        crossfadeTriggerJob = null
+        crossfadeOutJob?.cancel()
+        crossfadeOutJob = null
+        crossfadeInJob?.cancel()
+        crossfadeInJob = null
+        isCrossfadingIn = false
+        try {
+            player.volume = playerVolume.value
+        } catch (_: Exception) {
+        }
+        fadingPlayer?.let {
+            try {
+                it.stop()
+                it.release()
+            } catch (_: Exception) {
+            }
+        }
+        fadingPlayer = null
+    }
+
     override fun onDestroy() {
         if (dataStore.get(PersistentQueueKey, true)) {
             saveQueueToDisk()
         }
+        ttsManager.shutdown()
+        cleanupCrossfade()
         connectivityObserver.unregister()
         abandonAudioFocus()
         releaseLoudnessEnhancer()
@@ -1796,9 +2046,16 @@ class MusicService :
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
+
+        if (dataStore.get(ForceStopOnTaskClearKey, false)) {
+            player.pause()
+            stopSelf()
+            android.os.Process.killProcess(android.os.Process.myPid())
+            return
+        }
         
         // Check if user wants to stop music when task is cleared
-        if (dataStore.get(StopMusicOnTaskClearKey, false)) {
+        if (dataStore.get(StopMusicOnTaskClearKey, true)) {
             player.pause()
             stopSelf()
         }

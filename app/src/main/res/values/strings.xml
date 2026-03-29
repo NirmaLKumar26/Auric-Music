@@ -310,6 +310,8 @@
     <string name="auto_skip_next_on_error">Auto skip to next song when error occurs</string>
     <string name="auto_skip_next_on_error_desc">Ensure your continuous playback experience</string>
     <string name="stop_music_on_task_clear">Stop music on task clear</string>
+    <string name="force_stop_on_task_clear">Force stop app on task clear (Beta)</string>
+    <string name="force_stop_on_task_clear_desc">Prevents music from auto-playing when buds or headphones are reconnected</string>
     <string name="equalizer">Equalizer</string>
 
     <string name="storage">Storage</string>

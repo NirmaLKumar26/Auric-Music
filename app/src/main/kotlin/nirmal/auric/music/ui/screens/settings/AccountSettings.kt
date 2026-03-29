@@ -404,6 +404,21 @@ fun AccountSettings(
                     .clip(RoundedCornerShape(50))
                     .background(MaterialTheme.colorScheme.surface)
             )
+
+            Spacer(Modifier.height(4.dp))
+
+            PreferenceEntry(
+                title = { Text("Import from Spotify") },
+                icon = { Icon(painterResource(R.drawable.playlist_add), null) },
+                onClick = {
+                    onClose()
+                    navController.navigate("spotify_import")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surface)
+            )
         }
 
         Spacer(Modifier.height(12.dp))

@@ -340,6 +340,9 @@ fun NavGraphBuilder.navigationBuilder(
     composable("settings/ai") {
         AiSettings(navController, scrollBehavior)
     }
+    composable("spotify_import") {
+        SpotifyImportScreen(navController)
+    }
     composable("login") {
         LoginScreen(navController)
     }

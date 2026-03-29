@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
 class LyricsHelper
@@ -32,8 +30,10 @@ constructor(
     @ApplicationContext private val context: Context,
     private val networkConnectivity: NetworkConnectivityObserver,
 ) {
-    private var lyricsProviders =
+    private val defaultLyricsProviders =
         listOf(
+            BetterLyricsProvider,
+            LyricsPlusProvider,
             LrcLibLyricsProvider,
             SimpMusicLyricsProvider,
             KuGouLyricsProvider,
@@ -41,42 +41,13 @@ constructor(
             YouTubeLyricsProvider
         )
 
-    val preferred =
-        context.dataStore.data
-            .map {
-                it[PreferredLyricsProviderKey].toEnum(PreferredLyricsProvider.LRCLIB)
-            }.distinctUntilChanged()
-            .map {
-                lyricsProviders = when (it) {
-                    PreferredLyricsProvider.LRCLIB -> listOf(
-                        LrcLibLyricsProvider,
-                        SimpMusicLyricsProvider,
-                        KuGouLyricsProvider,
-                        YouTubeSubtitleLyricsProvider,
-                        YouTubeLyricsProvider
-                    )
-                    PreferredLyricsProvider.SIMPMUSIC -> listOf(
-                        SimpMusicLyricsProvider,
-                        LrcLibLyricsProvider,
-                        KuGouLyricsProvider,
-                        YouTubeSubtitleLyricsProvider,
-                        YouTubeLyricsProvider
-                    )
-                    PreferredLyricsProvider.KUGOU -> listOf(
-                        KuGouLyricsProvider,
-                        LrcLibLyricsProvider,
-                        SimpMusicLyricsProvider,
-                        YouTubeSubtitleLyricsProvider,
-                        YouTubeLyricsProvider
-                    )
-                }
-            }
-
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
     private var currentLyricsJob: Job? = null
 
     suspend fun getLyrics(mediaMetadata: MediaMetadata): String {
         currentLyricsJob?.cancel()
+
+        val lyricsProviders = getOrderedProviders()
 
         val cached = cache.get(mediaMetadata.id)?.firstOrNull()
         if (cached != null) {
@@ -123,6 +94,9 @@ constructor(
         }
 
         val lyrics = deferred.await()
+        if (lyrics != LYRICS_NOT_FOUND) {
+            cache.put(mediaMetadata.id, listOf(LyricsResult("first_available", lyrics)))
+        }
         scope.cancel()
         return lyrics
     }
@@ -135,6 +109,8 @@ constructor(
         callback: (LyricsResult) -> Unit,
     ) {
         currentLyricsJob?.cancel()
+
+        val lyricsProviders = getOrderedProviders()
 
         val cacheKey = "$songArtists-$songTitle".replace(" ", "")
         cache.get(cacheKey)?.let { results ->
@@ -183,6 +159,64 @@ constructor(
     fun cancelCurrentLyricsJob() {
         currentLyricsJob?.cancel()
         currentLyricsJob = null
+    }
+
+    private suspend fun getOrderedProviders(): List<LyricsProvider> {
+        val preferredProvider =
+            context.dataStore.data
+                .map {
+                    it[PreferredLyricsProviderKey].toEnum(PreferredLyricsProvider.BETTERLYRICS)
+                }
+                .distinctUntilChanged()
+                .first()
+
+        return when (preferredProvider) {
+            PreferredLyricsProvider.LRCLIB -> listOf(
+                LrcLibLyricsProvider,
+                SimpMusicLyricsProvider,
+                KuGouLyricsProvider,
+                BetterLyricsProvider,
+                LyricsPlusProvider,
+                YouTubeSubtitleLyricsProvider,
+                YouTubeLyricsProvider,
+            )
+            PreferredLyricsProvider.SIMPMUSIC -> listOf(
+                SimpMusicLyricsProvider,
+                LrcLibLyricsProvider,
+                KuGouLyricsProvider,
+                BetterLyricsProvider,
+                LyricsPlusProvider,
+                YouTubeSubtitleLyricsProvider,
+                YouTubeLyricsProvider,
+            )
+            PreferredLyricsProvider.KUGOU -> listOf(
+                KuGouLyricsProvider,
+                LrcLibLyricsProvider,
+                SimpMusicLyricsProvider,
+                BetterLyricsProvider,
+                LyricsPlusProvider,
+                YouTubeSubtitleLyricsProvider,
+                YouTubeLyricsProvider,
+            )
+            PreferredLyricsProvider.BETTERLYRICS -> listOf(
+                BetterLyricsProvider,
+                LyricsPlusProvider,
+                LrcLibLyricsProvider,
+                SimpMusicLyricsProvider,
+                KuGouLyricsProvider,
+                YouTubeSubtitleLyricsProvider,
+                YouTubeLyricsProvider,
+            )
+            PreferredLyricsProvider.LYRICSPLUS -> listOf(
+                LyricsPlusProvider,
+                BetterLyricsProvider,
+                LrcLibLyricsProvider,
+                SimpMusicLyricsProvider,
+                KuGouLyricsProvider,
+                YouTubeSubtitleLyricsProvider,
+                YouTubeLyricsProvider,
+            )
+        }.ifEmpty { defaultLyricsProviders }
     }
 
     companion object {

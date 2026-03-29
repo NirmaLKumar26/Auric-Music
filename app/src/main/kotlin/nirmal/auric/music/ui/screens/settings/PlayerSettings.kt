@@ -56,13 +56,18 @@ import nirmal.auric.music.constants.AudioQualityKey
 import nirmal.auric.music.constants.AudioOffload
 import nirmal.auric.music.constants.AutoDownloadOnLikeKey
 import nirmal.auric.music.constants.AutoLoadMoreKey
+import nirmal.auric.music.constants.CrossfadeDurationKey
+import nirmal.auric.music.constants.CrossfadeEnabledKey
+import nirmal.auric.music.constants.CrossfadeGaplessKey
 import nirmal.auric.music.constants.DisableLoadMoreWhenRepeatAllKey
 import nirmal.auric.music.constants.AutoSkipNextOnErrorKey
 import nirmal.auric.music.constants.DoubleTapToLikeKey
+import nirmal.auric.music.constants.ForceStopOnTaskClearKey
 import nirmal.auric.music.constants.PersistentQueueKey
 import nirmal.auric.music.constants.SimilarContent
 import nirmal.auric.music.constants.SkipSilenceKey
 import nirmal.auric.music.constants.StopMusicOnTaskClearKey
+import nirmal.auric.music.constants.TTSAnnouncementEnabledKey
 import nirmal.auric.music.constants.TapAlbumArtForLyricsKey
 import nirmal.auric.music.constants.HistoryDuration
 import nirmal.auric.music.constants.SeekExtraSeconds
@@ -133,6 +138,10 @@ fun PlayerSettings(
         StopMusicOnTaskClearKey,
         defaultValue = true
     )
+    val (forceStopOnTaskClear, onForceStopOnTaskClearChange) = rememberPreference(
+        ForceStopOnTaskClearKey,
+        defaultValue = false,
+    )
     val (tapAlbumArtForLyrics, onTapAlbumArtForLyricsChange) = rememberPreference(
         TapAlbumArtForLyricsKey,
         defaultValue = false
@@ -144,6 +153,22 @@ fun PlayerSettings(
     val (historyDuration, onHistoryDurationChange) = rememberPreference(
         HistoryDuration,
         defaultValue = 30f
+    )
+    val (crossfadeEnabled, onCrossfadeEnabledChange) = rememberPreference(
+        CrossfadeEnabledKey,
+        defaultValue = false
+    )
+    val (crossfadeDuration, onCrossfadeDurationChange) = rememberPreference(
+        CrossfadeDurationKey,
+        defaultValue = 3f
+    )
+    val (crossfadeGapless, onCrossfadeGaplessChange) = rememberPreference(
+        CrossfadeGaplessKey,
+        defaultValue = false
+    )
+    val (ttsAnnouncementEnabled, onTtsAnnouncementEnabledChange) = rememberPreference(
+        TTSAnnouncementEnabledKey,
+        defaultValue = false
     )
 
     Column(
@@ -207,6 +232,31 @@ fun PlayerSettings(
             checked = audioOffload,
             onCheckedChange = onAudioOffloadChange
         )
+
+        SwitchPreference(
+            title = { Text("Crossfade") },
+            description = "Smoothly blend outgoing and incoming tracks",
+            icon = { Icon(painterResource(R.drawable.waves), null) },
+            checked = crossfadeEnabled,
+            onCheckedChange = onCrossfadeEnabledChange
+        )
+
+        if (crossfadeEnabled) {
+            SliderPreference(
+                title = { Text("Crossfade duration") },
+                icon = { Icon(painterResource(R.drawable.timer), null) },
+                value = crossfadeDuration,
+                onValueChange = onCrossfadeDurationChange,
+            )
+
+            SwitchPreference(
+                title = { Text("Skip crossfade for same album") },
+                description = "Keep gapless transitions for same-album tracks",
+                icon = { Icon(painterResource(R.drawable.album), null) },
+                checked = crossfadeGapless,
+                onCheckedChange = onCrossfadeGaplessChange
+            )
+        }
 
         SwitchPreference(
             title = { Text(stringResource(R.string.seek_seconds_addup)) },
@@ -289,10 +339,26 @@ fun PlayerSettings(
         )
 
         SwitchPreference(
+            title = { Text("TTS song announcement") },
+            description = "Announce current song title and artist on track change",
+            icon = { Icon(painterResource(R.drawable.notification), null) },
+            checked = ttsAnnouncementEnabled,
+            onCheckedChange = onTtsAnnouncementEnabledChange
+        )
+
+        SwitchPreference(
             title = { Text(stringResource(R.string.stop_music_on_task_clear)) },
             icon = { Icon(painterResource(R.drawable.clear_all), null) },
             checked = stopMusicOnTaskClear,
             onCheckedChange = onStopMusicOnTaskClearChange
+        )
+
+        SwitchPreference(
+            title = { Text(stringResource(R.string.force_stop_on_task_clear)) },
+            description = stringResource(R.string.force_stop_on_task_clear_desc),
+            icon = { Icon(painterResource(R.drawable.warning), null) },
+            checked = forceStopOnTaskClear,
+            onCheckedChange = onForceStopOnTaskClearChange,
         )
     }
 
