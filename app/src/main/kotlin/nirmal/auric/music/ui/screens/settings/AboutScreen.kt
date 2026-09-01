@@ -62,6 +62,8 @@ fun AboutScreen(
 highlightKey: String? = null) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val upiId = stringResource(R.string.upi_support_id)
+    val upiUrl = stringResource(R.string.upi_support_url)
 
     Scaffold(
         modifier = Modifier
@@ -139,22 +141,10 @@ highlightKey: String? = null) {
                     title = "Support",
                     items = listOf(
                         Material3SettingsItem(
-                            icon = painterResource(R.drawable.coffee),
-                            title = { Text("Buy Me a Coffee") },
-                            description = { Text("buymeacoffee.com/nirmal") },
-                            onClick = { uriHandler.openUri("https://buymeacoffee.com/nirmal") }
-                        ),
-                        Material3SettingsItem(
-                            icon = painterResource(R.drawable.ic_patreon_new),
-                            title = { Text("Patreon") },
-                            description = { Text("patreon.com/cw/nirmal") },
-                            onClick = { uriHandler.openUri("https://www.patreon.com/cw/nirmal") }
-                        ),
-                        Material3SettingsItem(
                             icon = painterResource(R.drawable.upi_new),
                             title = { Text("UPI") },
-                            description = { Text("nirmal@upi") },
-                            onClick = { uriHandler.openUri("https://intradeus.github.io/http-protocol-redirector/?r=upi://pay?pa=nirmal@upi&pn=Nirmal&am=&tn=Thank%20You%20so%20much%20for%20this%20support") }
+                            description = { Text(upiId) },
+                            onClick = { uriHandler.openUri(upiUrl) }
                         )
                     )
                 )

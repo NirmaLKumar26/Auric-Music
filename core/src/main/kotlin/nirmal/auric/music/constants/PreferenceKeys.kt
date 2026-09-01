@@ -123,6 +123,21 @@ enum class PlaybackEngine {
 }
 
 val PlaybackEngineKey = stringPreferencesKey("playbackEngine")
+
+enum class PlaybackSource {
+    YOUTUBE,
+    JIOSAAVN,
+}
+
+val PlaybackSourceKey = stringPreferencesKey("playbackSource")
+
+enum class SaavnQuality(val bitrate: String) {
+    KBPS_96("96"),
+    KBPS_160("160"),
+    KBPS_320("320"),
+}
+
+val SaavnQualityKey = stringPreferencesKey("saavnQuality")
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 val PersistentShuffleAcrossQueuesKey = booleanPreferencesKey("persistentShuffleAcrossQueues")
 val RememberShuffleAndRepeatKey = booleanPreferencesKey("rememberShuffleAndRepeat")

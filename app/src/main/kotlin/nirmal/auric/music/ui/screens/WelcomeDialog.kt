@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +40,8 @@ fun WelcomeDialog(
     onDismissRequest: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
+    val upiId = stringResource(R.string.upi_support_id)
+    val upiUrl = stringResource(R.string.upi_support_url)
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -82,24 +85,10 @@ fun WelcomeDialog(
 
                 WelcomeSectionCard(title = "Support Auric") {
                     WelcomeActionRow(
-                        icon = painterResource(R.drawable.coffee),
-                        title = "Buy Me a Coffee",
-                        subtitle = "buymeacoffee.com/nirmal",
-                        onClick = { uriHandler.openUri("https://buymeacoffee.com/nirmal") }
-                    )
-                    WelcomeDivider()
-                    WelcomeActionRow(
-                        icon = painterResource(R.drawable.ic_patreon_new),
-                        title = "Patreon",
-                        subtitle = "patreon.com/cw/nirmal",
-                        onClick = { uriHandler.openUri("https://www.patreon.com/cw/nirmal") }
-                    )
-                    WelcomeDivider()
-                    WelcomeActionRow(
                         icon = painterResource(R.drawable.upi_new),
                         title = "UPI",
-                        subtitle = "nirmal@upi",
-                        onClick = { uriHandler.openUri("https://intradeus.github.io/http-protocol-redirector/?r=upi://pay?pa=nirmal@upi&pn=Nirmal&am=&tn=Thank%20You%20so%20much%20for%20this%20support") }
+                        subtitle = upiId,
+                        onClick = { uriHandler.openUri(upiUrl) }
                     )
                 }
 

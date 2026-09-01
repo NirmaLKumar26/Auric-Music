@@ -19,8 +19,10 @@ val MediaItem.metadata: MediaMetadata?
 
 private fun playbackSeedUri(mediaId: String): String {
     val scheme = mediaId.toUri().scheme?.lowercase(Locale.US)
-    return when (scheme) {
-        "content", "file", "android.resource", "http", "https" -> mediaId
+    return when {
+        scheme == "content" || scheme == "file" || scheme == "android.resource" ||
+            scheme == "http" || scheme == "https" -> mediaId
+        mediaId.startsWith("saavn:") -> "https://www.jiosaavn.com/"
         else -> "https://music.youtube.com/watch?v=${Uri.encode(mediaId)}"
     }
 }

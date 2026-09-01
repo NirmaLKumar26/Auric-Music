@@ -304,7 +304,7 @@ fun BottomSheetPlayer(
 
     val (useNewPlayerDesign, onUseNewPlayerDesignChange) = rememberPreference(
         UseNewPlayerDesignKey,
-        defaultValue = true
+        defaultValue = false
     )
     val showCodecOnPlayer by rememberPreference(nirmal.auric.music.constants.ShowCodecOnPlayerKey, false)
     val hidePlayerSlider by rememberPreference(nirmal.auric.music.constants.HidePlayerSliderKey, false)
@@ -315,7 +315,7 @@ fun BottomSheetPlayer(
 
     val playerBackgroundPref by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
-        defaultValue = PlayerBackgroundStyle.GRADIENT
+        defaultValue = PlayerBackgroundStyle.APPLE_MUSIC
     )
     val playerBackground = if (isLocalMedia) PlayerBackgroundStyle.DEFAULT else playerBackgroundPref
     val playerButtonsStyle by rememberEnumPreference(

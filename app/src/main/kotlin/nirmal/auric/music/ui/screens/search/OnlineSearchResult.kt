@@ -82,6 +82,10 @@ import nirmal.auric.music.constants.PauseSearchHistoryKey
 import nirmal.auric.music.db.entities.SearchHistory
 import nirmal.auric.music.models.toMediaMetadata
 import nirmal.auric.music.playback.queues.YouTubeQueue
+import nirmal.auric.music.playback.queues.ListQueue
+import nirmal.auric.music.saavn.FILTER_JIOSAAVN
+import nirmal.auric.music.extensions.toMediaItem
+import nirmal.auric.music.utils.isSaavnMediaId
 import nirmal.auric.music.ui.component.ChipsRow
 import nirmal.auric.music.ui.component.EmptyPlaceholder
 import nirmal.auric.music.ui.component.LocalMenuState
@@ -255,6 +259,13 @@ fun OnlineSearchResult(
                             is SongItem -> {
                                 if (item.id == mediaMetadata?.id) {
                                     playerConnection.togglePlayPause()
+                                } else if (item.id.isSaavnMediaId()) {
+                                    playerConnection.playQueue(
+                                        ListQueue(
+                                            title = item.title,
+                                            items = listOf(item.toMediaItem()),
+                                        )
+                                    )
                                 } else {
                                     playerConnection.playQueue(
                                         YouTubeQueue(
@@ -265,9 +276,21 @@ fun OnlineSearchResult(
                                 }
                             }
 
-                            is AlbumItem -> navController.navigate("album/${item.id}")
-                            is ArtistItem -> navController.navigate("artist/${item.id}")
-                            is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                            is AlbumItem -> if (item.id.isSaavnMediaId()) {
+                                navController.navigate("saavn/album/${URLEncoder.encode(item.id.removePrefix("saavn:album:"), "UTF-8")}")
+                            } else {
+                                navController.navigate("album/${item.id}")
+                            }
+                            is ArtistItem -> if (item.id.isSaavnMediaId()) {
+                                navController.navigate("saavn/artist/${URLEncoder.encode(item.id.removePrefix("saavn:artist:"), "UTF-8")}")
+                            } else {
+                                navController.navigate("artist/${item.id}")
+                            }
+                            is PlaylistItem -> if (item.id.isSaavnMediaId()) {
+                                navController.navigate("saavn/playlist/${URLEncoder.encode(item.id.removePrefix("saavn:playlist:"), "UTF-8")}")
+                            } else {
+                                navController.navigate("online_playlist/${item.id}")
+                            }
                         }
                     },
                     onLongClick = longClick,
@@ -362,6 +385,7 @@ fun OnlineSearchResult(
             ChipsRow(
                 chips = listOf(
                     null to stringResource(R.string.filter_all),
+                    FILTER_JIOSAAVN to stringResource(R.string.filter_jiosaavn),
                     FILTER_SONG to stringResource(R.string.filter_songs),
                     FILTER_VIDEO to stringResource(R.string.filter_videos),
                     FILTER_ALBUM to stringResource(R.string.filter_albums),

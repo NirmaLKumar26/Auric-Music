@@ -196,11 +196,14 @@ import nirmal.auric.music.db.MusicDatabase
 import nirmal.auric.music.db.entities.SearchHistory
 import nirmal.auric.music.extensions.toEnum
 import nirmal.auric.music.models.toMediaMetadata
+import nirmal.auric.music.saavn.toSongItem
+import nirmal.auric.music.extensions.toMediaItem
+import nirmal.auric.music.playback.queues.ListQueue
+import nirmal.auric.music.playback.queues.YouTubeQueue
 import nirmal.auric.music.playback.DownloadUtil
 import nirmal.auric.music.playback.MusicService
 import nirmal.auric.music.playback.MusicService.MusicBinder
 import nirmal.auric.music.playback.PlayerConnection
-import nirmal.auric.music.playback.queues.YouTubeQueue
 import nirmal.auric.music.ui.component.*
 import nirmal.auric.music.ui.component.backdrop.backdrops.rememberLayerBackdrop
 import nirmal.auric.music.ui.component.backdrop.backdrops.layerBackdrop
@@ -249,6 +252,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_LIBRARY = "nirmal.auric.music.action.LIBRARY"
         const val ACTION_RECOGNITION = "nirmal.auric.music.action.RECOGNITION"
         const val EXTRA_AUTO_START_RECOGNITION = "auto_start_recognition"
+        const val EXTRA_OPEN_UPDATE = "nirmal.auric.music.OPEN_UPDATE"
     }
 
     @Inject
@@ -341,6 +345,7 @@ class MainActivity : ComponentActivity() {
             handleDeepLinkIntent(intent, navController)
             handleRecognitionIntent(intent, navController)
             handleAssistantSearchIntent(intent, navController)
+            handleUpdateIntent(intent, navController)
         } else {
             pendingIntent = intent
         }
@@ -440,6 +445,7 @@ class MainActivity : ComponentActivity() {
         val enableHighRefreshRate by rememberPreference(EnableHighRefreshRateKey, defaultValue = true)
         val context = LocalContext.current
         var showUpdateDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+        var openUpdateScreen by remember { androidx.compose.runtime.mutableStateOf(false) }
         var availableUpdateVersion by remember { androidx.compose.runtime.mutableStateOf("") }
         var availableUpdateChangelog by remember { androidx.compose.runtime.mutableStateOf<List<nirmal.auric.music.auricmusic.updater.ChangelogSection>>(emptyList()) }
         var availableUpdateDescription by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
@@ -581,7 +587,11 @@ class MainActivity : ComponentActivity() {
                 version = availableUpdateVersion,
                 changelog = availableUpdateChangelog,
                 description = availableUpdateDescription,
-                onDismiss = { showUpdateDialog = false }
+                onDismiss = { showUpdateDialog = false },
+                onUpdate = {
+                    showUpdateDialog = false
+                    openUpdateScreen = true
+                }
             )
         }
             BoxWithConstraints(
@@ -618,6 +628,7 @@ class MainActivity : ComponentActivity() {
                 val bottomInsetDp = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
                 val navController = rememberNavController()
+                this@MainActivity.navController = navController
                 val homeViewModel: HomeViewModel = hiltViewModel()
                 val accountImageUrl by homeViewModel.accountImageUrl.collectAsState()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -710,7 +721,7 @@ class MainActivity : ComponentActivity() {
                     label = "navBarHeight",
                 )
 
-                val (useFloatingNavBar) = rememberPreference(UseFloatingNavBarKey, defaultValue = false)
+                val (useFloatingNavBar) = rememberPreference(UseFloatingNavBarKey, defaultValue = true)
                 val floatingNavBarScrollConnection = rememberFloatingTabBarScrollConnection()
 
                 val playerBottomSheetState = rememberBottomSheetState(
@@ -879,11 +890,21 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(openUpdateScreen) {
+                    if (openUpdateScreen) {
+                        openUpdateScreen = false
+                        navController.navigate("update") {
+                            launchSingleTop = true
+                        }
+                    }
+                }
+
                 LaunchedEffect(Unit) {
                     if (pendingIntent != null) {
                         handleDeepLinkIntent(pendingIntent!!, navController)
                         handleRecognitionIntent(pendingIntent!!, navController)
                         handleAssistantSearchIntent(pendingIntent!!, navController)
+                        handleUpdateIntent(pendingIntent!!, navController)
                         pendingIntent = null
                     } else if (intent != null && (intent.action == Intent.ACTION_VIEW || intent.action == Intent.ACTION_SEND)) {
                         handleDeepLinkIntent(intent, navController)
@@ -891,6 +912,8 @@ class MainActivity : ComponentActivity() {
                         handleRecognitionIntent(intent, navController)
                     } else if (intent != null && intent.action == android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) {
                         handleAssistantSearchIntent(intent, navController)
+                    } else if (intent?.getBooleanExtra(EXTRA_OPEN_UPDATE, false) == true) {
+                        handleUpdateIntent(intent, navController)
                     }
                 }
 
@@ -925,7 +948,7 @@ class MainActivity : ComponentActivity() {
                     !(pauseListenHistory && eventCount == 0)
                 }
 
-                val (liquidGlassGlobalEnabled) = rememberPreference(LiquidGlassGlobalEnabledKey, defaultValue = false)
+                val (liquidGlassGlobalEnabled) = rememberPreference(LiquidGlassGlobalEnabledKey, defaultValue = true)
                 val (liquidGlassVibrancy) = rememberPreference(LiquidGlassVibrancyKey, defaultValue = 1f)
                 val (liquidGlassBlurRadius) = rememberPreference(LiquidGlassBlurRadiusKey, defaultValue = 8f)
                 val (liquidGlassLensHeight) = rememberPreference(LiquidGlassLensHeightKey, defaultValue = 0.5f)
@@ -1450,6 +1473,37 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra(Intent.EXTRA_TEXT)
         val coroutineScope = lifecycle.coroutineScope
 
+        val saavnTarget = com.music.saavn.Saavn.parseUrl(uri.toString())
+        if (saavnTarget != null) {
+            when (saavnTarget.type) {
+                com.music.saavn.SaavnCollectionType.SONG -> {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        val song = com.music.saavn.Saavn.song(saavnTarget.token).getOrNull()
+                            ?: com.music.saavn.Saavn.collection("song", saavnTarget.token).songs.firstOrNull()
+                        val item = song?.toSongItem() ?: return@launch
+                        withContext(Dispatchers.Main) {
+                            var attempts = 0
+                            while (playerConnection == null && attempts < 20) {
+                                delay(100)
+                                attempts++
+                            }
+                            playerConnection?.playQueue(
+                                ListQueue(
+                                    title = item.title,
+                                    items = listOf(item.toMediaItem()),
+                                )
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    val type = saavnTarget.type.name.lowercase()
+                    navController.navigate("saavn/$type/${URLEncoder.encode(saavnTarget.token, "UTF-8")}")
+                }
+            }
+            return
+        }
+
         val listenCode = uri.getQueryParameter("code")
             ?: uri.getQueryParameter("room")
             ?: uri.pathSegments.getOrNull(1)
@@ -1559,6 +1613,17 @@ class MainActivity : ComponentActivity() {
             window.navigationBarColor = (if (isDark) Color.Transparent else Color.Black.copy(alpha = 0.2f)).toArgb()
         }
     }
+    private fun handleUpdateIntent(
+        intent: Intent,
+        navController: NavHostController,
+    ) {
+        if (!intent.getBooleanExtra(EXTRA_OPEN_UPDATE, false)) return
+        intent.removeExtra(EXTRA_OPEN_UPDATE)
+        navController.navigate("update") {
+            launchSingleTop = true
+        }
+    }
+
     private fun handleRecognitionIntent(
         intent: Intent,
         navController: NavHostController,

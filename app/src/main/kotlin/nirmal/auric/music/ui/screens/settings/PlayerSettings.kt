@@ -39,6 +39,10 @@ import nirmal.auric.music.constants.AudioNormalizationKey
 import nirmal.auric.music.constants.AudioOffload
 import nirmal.auric.music.constants.AudioQuality
 import nirmal.auric.music.constants.AudioQualityKey
+import nirmal.auric.music.constants.PlaybackSource
+import nirmal.auric.music.constants.PlaybackSourceKey
+import nirmal.auric.music.constants.SaavnQuality
+import nirmal.auric.music.constants.SaavnQualityKey
 import nirmal.auric.music.constants.AutoDownloadOnLikeKey
 import nirmal.auric.music.constants.AutomixCrossfadeKey
 import nirmal.auric.music.constants.AutomixDebugOverlayKey
@@ -237,10 +241,20 @@ highlightKey: String? = null) {
     var showAudioQualityDialog by remember { mutableStateOf(false) }
     var showDownloadQualityDialog by remember { mutableStateOf(false) }
     var showPlaybackEngineDialog by remember { mutableStateOf(false) }
+    var showPlaybackSourceDialog by remember { mutableStateOf(false) }
+    var showSaavnQualityDialog by remember { mutableStateOf(false) }
 
     val (playbackEngine, onPlaybackEngineChange) = rememberEnumPreference(
         nirmal.auric.music.constants.PlaybackEngineKey,
         defaultValue = nirmal.auric.music.constants.PlaybackEngine.AUTO
+    )
+    val (playbackSource, onPlaybackSourceChange) = rememberEnumPreference(
+        PlaybackSourceKey,
+        defaultValue = PlaybackSource.YOUTUBE
+    )
+    val (saavnQuality, onSaavnQualityChange) = rememberEnumPreference(
+        SaavnQualityKey,
+        defaultValue = SaavnQuality.KBPS_320
     )
 
     val (downloadQuality, onDownloadQualityChange) = rememberEnumPreference(
@@ -316,6 +330,58 @@ highlightKey: String? = null) {
                     nirmal.auric.music.constants.PlaybackEngine.POTOKEN -> "Uses WebView PoToken + CipherDeobfuscator. Most reliable and future-proof."
                     nirmal.auric.music.constants.PlaybackEngine.BRAVEPIPE -> "Uses NewPipe extractor for stream resolution. Lightweight but may break with YouTube updates."
                     nirmal.auric.music.constants.PlaybackEngine.AUTO -> "Tries PoToken first, falls back to BravePipe if it fails."
+                }
+            }
+        )
+    }
+
+    if (showPlaybackSourceDialog) {
+        EnumDialog(
+            onDismiss = { showPlaybackSourceDialog = false },
+            onSelect = {
+                onPlaybackSourceChange(it)
+                showPlaybackSourceDialog = false
+            },
+            title = stringResource(R.string.playback_source),
+            current = playbackSource,
+            values = listOf(
+                PlaybackSource.YOUTUBE,
+                PlaybackSource.JIOSAAVN,
+            ),
+            valueText = {
+                when (it) {
+                    PlaybackSource.YOUTUBE -> stringResource(R.string.playback_source_youtube)
+                    PlaybackSource.JIOSAAVN -> stringResource(R.string.playback_source_jiosaavn)
+                }
+            },
+            valueDescription = {
+                when (it) {
+                    PlaybackSource.YOUTUBE -> stringResource(R.string.playback_source_youtube_desc)
+                    PlaybackSource.JIOSAAVN -> stringResource(R.string.playback_source_jiosaavn_desc)
+                }
+            }
+        )
+    }
+
+    if (showSaavnQualityDialog) {
+        EnumDialog(
+            onDismiss = { showSaavnQualityDialog = false },
+            onSelect = {
+                onSaavnQualityChange(it)
+                showSaavnQualityDialog = false
+            },
+            title = stringResource(R.string.saavn_quality),
+            current = saavnQuality,
+            values = listOf(
+                SaavnQuality.KBPS_96,
+                SaavnQuality.KBPS_160,
+                SaavnQuality.KBPS_320,
+            ),
+            valueText = {
+                when (it) {
+                    SaavnQuality.KBPS_96 -> stringResource(R.string.saavn_quality_96)
+                    SaavnQuality.KBPS_160 -> stringResource(R.string.saavn_quality_160)
+                    SaavnQuality.KBPS_320 -> stringResource(R.string.saavn_quality_320)
                 }
             }
         )
@@ -429,6 +495,37 @@ highlightKey: String? = null) {
                         )
                     },
                     onClick = { showDownloadQualityDialog = true }
+                ))
+
+                add(Material3SettingsItem(
+                    isHighlighted = (highlightKey == stringResource(R.string.playback_source)),
+                    icon = painterResource(R.drawable.music_note),
+                    title = { Text(stringResource(R.string.playback_source)) },
+                    description = {
+                        Text(
+                            when (playbackSource) {
+                                PlaybackSource.YOUTUBE -> stringResource(R.string.playback_source_youtube)
+                                PlaybackSource.JIOSAAVN -> stringResource(R.string.playback_source_jiosaavn)
+                            }
+                        )
+                    },
+                    onClick = { showPlaybackSourceDialog = true }
+                ))
+
+                add(Material3SettingsItem(
+                    isHighlighted = (highlightKey == stringResource(R.string.saavn_quality)),
+                    icon = painterResource(R.drawable.equalizer),
+                    title = { Text(stringResource(R.string.saavn_quality)) },
+                    description = {
+                        Text(
+                            when (saavnQuality) {
+                                SaavnQuality.KBPS_96 -> stringResource(R.string.saavn_quality_96)
+                                SaavnQuality.KBPS_160 -> stringResource(R.string.saavn_quality_160)
+                                SaavnQuality.KBPS_320 -> stringResource(R.string.saavn_quality_320)
+                            }
+                        )
+                    },
+                    onClick = { showSaavnQualityDialog = true }
                 ))
 
                 add(Material3SettingsItem(

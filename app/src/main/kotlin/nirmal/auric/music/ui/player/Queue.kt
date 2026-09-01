@@ -274,7 +274,7 @@ fun Queue(
 
     val (useNewPlayerDesign, onUseNewPlayerDesignChange) = rememberPreference(
         UseNewPlayerDesignKey,
-        defaultValue = true
+        defaultValue = false
     )
     val (showCommentButton) = rememberPreference(
         ShowCommentButtonKey,

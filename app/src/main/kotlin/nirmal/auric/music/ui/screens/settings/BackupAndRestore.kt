@@ -198,6 +198,12 @@ fun BackupAndRestore(
                                 description = { Text(stringResource(R.string.spotify_import_desc)) },
                                 icon = painterResource(R.drawable.ic_spotify),
                                 onClick = { navController.navigate("settings/spotify_import") }
+                            ),
+                            Material3SettingsItem(
+                                title = { Text(stringResource(R.string.saavn_import_title)) },
+                                description = { Text(stringResource(R.string.saavn_import_desc)) },
+                                icon = painterResource(R.drawable.music_note),
+                                onClick = { navController.navigate("settings/saavn_import") }
                             )
                         )
                     )

@@ -73,6 +73,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -335,23 +336,13 @@ fun UpdateScreen(navController: NavHostController) {
                                                 ContextCompat.startActivity(context, installIntent, null)
                                             }
                                         } else {
-                                            val urlToDownload = currentStatus.apkUrl ?: "https://github.com/NirmaLKumar26/Auric-Music/releases/download/${currentStatus.version}/auricmusic.apk"
-                                            
-                                            val constraints = Constraints.Builder()
-                                                .setRequiredNetworkType(NetworkType.CONNECTED)
-                                                .build()
-
-                                            val downloadRequest = OneTimeWorkRequestBuilder<UpdateDownloadWorker>()
-                                                .setInputData(workDataOf("apk_url" to urlToDownload, "version" to currentStatus.version, "file_size" to currentStatus.size))
-                                                .setConstraints(constraints)
-                                                .setBackoffCriteria(
-                                                    BackoffPolicy.EXPONENTIAL,
-                                                    10,
-                                                    java.util.concurrent.TimeUnit.SECONDS
-                                                )
-                                                .addTag("update_download")
-                                                .build()
-                                            WorkManager.getInstance(context).enqueueUniqueWork("update_download", ExistingWorkPolicy.REPLACE, downloadRequest)
+                                            enqueueApkDownload(
+                                                context = context,
+                                                apkUrl = currentStatus.apkUrl
+                                                    ?: "https://github.com/NirmaLKumar26/Auric-Music/releases/download/${currentStatus.version}/auricmusic.apk",
+                                                version = currentStatus.version,
+                                                size = currentStatus.size,
+                                            )
                                             isDownloading = true
                                         }
                                     },
@@ -626,6 +617,42 @@ private fun formatGitHubDate(githubDate: String): String = try {
 }
 
 
+private const val GITHUB_REPO = "NirmaLKumar26/Auric-Music"
+private const val GITHUB_USER_AGENT = "Auric-Music-App"
+private const val GITHUB_API_VERSION = "2022-11-28"
+
+fun enqueueApkDownload(
+    context: Context,
+    apkUrl: String,
+    version: String,
+    size: String,
+) {
+    val constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build()
+    val downloadRequest = OneTimeWorkRequestBuilder<UpdateDownloadWorker>()
+        .setInputData(
+            workDataOf(
+                "apk_url" to apkUrl,
+                "version" to version,
+                "file_size" to size,
+            )
+        )
+        .setConstraints(constraints)
+        .setBackoffCriteria(
+            BackoffPolicy.EXPONENTIAL,
+            10,
+            java.util.concurrent.TimeUnit.SECONDS,
+        )
+        .addTag("update_download")
+        .build()
+    WorkManager.getInstance(context).enqueueUniqueWork(
+        "update_download",
+        ExistingWorkPolicy.REPLACE,
+        downloadRequest,
+    )
+}
+
 fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
     val latestVersionClean = latestVersion.removePrefix("b").removePrefix("v")
     val currentVersionClean = currentVersion.removePrefix("b").removePrefix("v")
@@ -655,6 +682,67 @@ fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
 }
 
 
+private fun githubGet(url: String, accept: String = "application/vnd.github+json"): String {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    connection.instanceFollowRedirects = true
+    connection.connectTimeout = 15_000
+    connection.readTimeout = 15_000
+    connection.setRequestProperty("User-Agent", GITHUB_USER_AGENT)
+    connection.setRequestProperty("Accept", accept)
+    connection.setRequestProperty("X-GitHub-Api-Version", GITHUB_API_VERSION)
+    try {
+        val code = connection.responseCode
+        val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+        val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (code !in 200..299) {
+            error("GitHub HTTP $code: ${body.take(200)}")
+        }
+        return body
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun pickApkAsset(assets: JSONArray): JSONObject? {
+    val apks = buildList {
+        for (i in 0 until assets.length()) {
+            val asset = assets.optJSONObject(i) ?: continue
+            if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
+                add(asset)
+            }
+        }
+    }
+    if (apks.isEmpty()) return null
+    fun nameOf(asset: JSONObject) = asset.optString("name").lowercase()
+    return apks.firstOrNull { name ->
+        val n = nameOf(name)
+        (n.contains("arm64") || n.contains("foss") || n.contains("release")) && !n.contains("debug")
+    } ?: apks.firstOrNull { !nameOf(it).contains("debug") }
+        ?: apks.firstOrNull { nameOf(it).contains("arm64") }
+        ?: apks.first()
+}
+
+private fun parseChangelogJson(json: String): Triple<List<ChangelogSection>, String?, String?> {
+    val changelogData = JSONObject(json)
+    val changelogList = mutableListOf<ChangelogSection>()
+    val description = changelogData.optString("description").takeIf { it.isNotEmpty() }
+    val imageUrl = changelogData.optString("image").takeIf { it.isNotEmpty() }
+    val changelogArray = changelogData.optJSONArray("changelog")
+    if (changelogArray != null) {
+        for (j in 0 until changelogArray.length()) {
+            val sectionObj = changelogArray.optJSONObject(j) ?: continue
+            val title = sectionObj.optString("title")
+            val itemsArray = sectionObj.optJSONArray("items") ?: continue
+            val itemsList = mutableListOf<String>()
+            for (k in 0 until itemsArray.length()) {
+                itemsList.add(itemsArray.getString(k))
+            }
+            changelogList.add(ChangelogSection(title, itemsList))
+        }
+    }
+    return Triple(changelogList, description, imageUrl)
+}
+
 suspend fun checkForUpdate(
     context: Context,
     onSuccess: (tag: String, isAvailable: Boolean, changelog: List<ChangelogSection>, size: String, date: String, description: String?, imageUrl: String?, apkUrl: String?) -> Unit,
@@ -662,47 +750,36 @@ suspend fun checkForUpdate(
 ) {
     withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://api.github.com/repos/NirmaLKumar26/Auric-Music/releases/latest")
-            val json = url.openStream().bufferedReader().use { it.readText() }
-            val targetRelease = JSONObject(json)
-            
+            val includeBeta = getBetaUpdatesSetting(context)
+            val targetRelease = if (includeBeta) {
+                val releases = JSONArray(githubGet("https://api.github.com/repos/$GITHUB_REPO/releases?per_page=15"))
+                (0 until releases.length())
+                    .map { releases.getJSONObject(it) }
+                    .firstOrNull { !it.optBoolean("draft", false) }
+                    ?: error("No GitHub releases found")
+            } else {
+                JSONObject(githubGet("https://api.github.com/repos/$GITHUB_REPO/releases/latest"))
+            }
+
             val currentVersion = BuildConfig.VERSION_NAME
             val targetTagName = targetRelease.getString("tag_name")
-            val currentClean = currentVersion.removePrefix("b").removePrefix("v").trim()
-            val targetClean = targetTagName.removePrefix("b").removePrefix("v").trim()
-            val shouldShow = currentClean != targetClean
+            val shouldShow = isNewerVersion(targetTagName, currentVersion)
 
             if (shouldShow) {
-                val tagWithPrefix = targetRelease.getString("tag_name")
-                val displayTag = tagWithPrefix
-
-                
                 val changelogList = mutableListOf<ChangelogSection>()
                 var description: String? = null
                 var imageUrl: String? = null
                 try {
-                    val changelogUrl =
-                        URL("https://github.com/NirmaLKumar26/Auric-Music/releases/download/$tagWithPrefix/changelog.json")
-                    val changelogJson = changelogUrl.openStream().bufferedReader().use { it.readText() }
-                    val changelogData = JSONObject(changelogJson)
-
-                    description = changelogData.optString("description").takeIf { it.isNotEmpty() }
-                    imageUrl = changelogData.optString("image").takeIf { it.isNotEmpty() }
-
-                    val changelogArray = changelogData.getJSONArray("changelog")
-                    for (j in 0 until changelogArray.length()) {
-                        val sectionObj = changelogArray.getJSONObject(j)
-                        val title = sectionObj.getString("title")
-                        val itemsArray = sectionObj.getJSONArray("items")
-                        val itemsList = mutableListOf<String>()
-                        for (k in 0 until itemsArray.length()) {
-                            itemsList.add(itemsArray.getString(k))
-                        }
-                        changelogList.add(ChangelogSection(title, itemsList))
-                    }
-                } catch (e: Exception) {
+                    val changelogJson = githubGet(
+                        "https://github.com/$GITHUB_REPO/releases/download/$targetTagName/changelog.json",
+                        accept = "application/json",
+                    )
+                    val parsed = parseChangelogJson(changelogJson)
+                    changelogList.addAll(parsed.first)
+                    description = parsed.second
+                    imageUrl = parsed.third
+                } catch (_: Exception) {
                     var body = targetRelease.optString("body", context.getString(R.string.no_changelog_available))
-                    
                     val imageRegex = Regex("!\\[(.*?)\\]\\((.*?)\\)")
                     val match = imageRegex.find(body)
                     if (match != null) {
@@ -714,30 +791,30 @@ suspend fun checkForUpdate(
 
                 val publishedAt = targetRelease.getString("published_at")
                 val formattedReleaseDate = formatGitHubDate(publishedAt)
-                val assets = targetRelease.getJSONArray("assets")
-
-                var apkSizeInMB = ""
-                var apkDownloadUrl = ""
-                for (j in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(j)
-                    val assetName = asset.getString("name")
-                    if (assetName.endsWith(".apk", ignoreCase = true) && !assetName.lowercase().contains("debug")) {
-                        val apkSizeInBytes = asset.getLong("size")
-                        apkSizeInMB = String.format("%.1f", apkSizeInBytes / (1024.0 * 1024.0))
-                        apkDownloadUrl = asset.getString("browser_download_url")
-                        break
-                    }
-                }
+                val apkAsset = pickApkAsset(targetRelease.optJSONArray("assets") ?: JSONArray())
+                val apkDownloadUrl = apkAsset?.optString("browser_download_url").orEmpty()
+                val apkSizeInMB = apkAsset?.optLong("size")?.let { bytes ->
+                    String.format("%.1f", bytes / (1024.0 * 1024.0))
+                }.orEmpty()
 
                 if (apkDownloadUrl.isNotEmpty()) {
                     withContext(Dispatchers.Main) {
-                        onSuccess(displayTag, true, changelogList, apkSizeInMB, formattedReleaseDate, description, imageUrl, apkDownloadUrl)
+                        onSuccess(
+                            targetTagName,
+                            true,
+                            changelogList,
+                            apkSizeInMB,
+                            formattedReleaseDate,
+                            description,
+                            imageUrl,
+                            apkDownloadUrl,
+                        )
                     }
                     return@withContext
                 }
+                Log.w("UpdateCheck", "GitHub release $targetTagName has no APK asset")
             }
 
-            
             withContext(Dispatchers.Main) {
                 onSuccess(currentVersion, false, emptyList(), "", "", null, null, null)
             }

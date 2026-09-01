@@ -77,6 +77,10 @@ import nirmal.auric.music.R
 import nirmal.auric.music.constants.AudioNormalizationKey
 import nirmal.auric.music.constants.AudioOffload
 import nirmal.auric.music.constants.AudioQualityKey
+import nirmal.auric.music.constants.PlaybackSource
+import nirmal.auric.music.constants.PlaybackSourceKey
+import nirmal.auric.music.constants.SaavnQuality
+import nirmal.auric.music.constants.SaavnQualityKey
 import nirmal.auric.music.constants.AutoDownloadOnLikeKey
 import nirmal.auric.music.constants.AutoLoadMoreKey
 import nirmal.auric.music.constants.AutoSkipNextOnErrorKey
@@ -177,10 +181,13 @@ import nirmal.auric.music.utils.YTPlayerUtils
 import nirmal.auric.music.utils.dataStore
 import nirmal.auric.music.utils.get
 import nirmal.auric.music.utils.reportException
+import nirmal.auric.music.utils.isLocalMediaId
+import nirmal.auric.music.utils.isSaavnMediaId
+import com.music.saavn.Saavn
+import com.music.saavn.SaavnIds
 import nirmal.auric.music.widget.AuricMusicWidgetManager
 import nirmal.auric.music.widget.MusicWidgetReceiver
 import dagger.hilt.android.AndroidEntryPoint
-import nirmal.auric.music.utils.isLocalMediaId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -363,7 +370,10 @@ class MusicService :
     private val isNetworkConnected = MutableStateFlow(false)
 
     private lateinit var audioQuality: nirmal.auric.music.constants.AudioQuality
+    private var playbackSource: PlaybackSource = PlaybackSource.YOUTUBE
+    private var saavnQuality: SaavnQuality = SaavnQuality.KBPS_320
     private lateinit var ipVersion: IpVersion
+    private val saavnMatchCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private var currentQueue: Queue = EmptyQueue
     var queueTitle: String? = null
@@ -681,6 +691,8 @@ class MusicService :
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
 
         audioQuality = dataStore.get(AudioQualityKey).toEnum(nirmal.auric.music.constants.AudioQuality.OPUS)
+        playbackSource = dataStore.get(PlaybackSourceKey).toEnum(PlaybackSource.YOUTUBE)
+        saavnQuality = dataStore.get(SaavnQualityKey).toEnum(SaavnQuality.KBPS_320)
         ipVersion = dataStore.get(IpVersionKey).toEnum(IpVersion.AUTO)
         playerVolume = MutableStateFlow(restorePlayerVolume(dataStore.get(PlayerVolumeKey, 1f)))
 
@@ -783,6 +795,38 @@ class MusicService :
 
                     // Re-trigger prefetch to fetch the next songs in the new quality
                     preloadUpcomingItems()
+                }
+        }
+
+        scope.launch {
+            var isFirstPlaybackSourceEmit = true
+            dataStore.data
+                .map {
+                    Pair(
+                        (try { it[PlaybackSourceKey] } catch (_: Exception) { null })
+                            ?.toEnum(PlaybackSource.YOUTUBE) ?: PlaybackSource.YOUTUBE,
+                        (try { it[SaavnQualityKey] } catch (_: Exception) { null })
+                            ?.toEnum(SaavnQuality.KBPS_320) ?: SaavnQuality.KBPS_320,
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { (source, quality) ->
+                    playbackSource = source
+                    saavnQuality = quality
+                    if (isFirstPlaybackSourceEmit) {
+                        isFirstPlaybackSourceEmit = false
+                        return@collect
+                    }
+                    saavnMatchCache.clear()
+                    songUrlCache.clear()
+                    val mediaId = player.currentMediaItem?.mediaId ?: return@collect
+                    val currentPosition = player.currentPosition
+                    val currentIndex = player.currentMediaItemIndex
+                    val wasPlaying = player.isPlaying
+                    player.stop()
+                    player.seekTo(currentIndex, currentPosition)
+                    player.prepare()
+                    if (wasPlaying) player.play()
                 }
         }
 
@@ -1416,7 +1460,7 @@ class MusicService :
         } ?: return
         val duration = song?.song?.duration?.takeIf { it != -1 }
             ?: mediaMetadata.duration.takeIf { it != -1 }
-            ?: if (isOfflinePlayback) -1 else (playbackData?.videoDetails ?: YTPlayerUtils.playerResponseForMetadata(mediaId, null)
+            ?: if (isOfflinePlayback || mediaId.isSaavnMediaId()) -1 else (playbackData?.videoDetails ?: YTPlayerUtils.playerResponseForMetadata(mediaId, null)
                 .getOrNull()?.videoDetails)?.lengthSeconds?.toInt()
             ?: -1
         database.query {
@@ -1435,7 +1479,7 @@ class MusicService :
                 }
             }
         }
-        if (!isOfflinePlayback && !database.hasRelatedSongs(mediaId)) {
+        if (!isOfflinePlayback && !mediaId.isSaavnMediaId() && !database.hasRelatedSongs(mediaId)) {
             val relatedEndpoint =
                 YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint
                     ?: return
@@ -2943,6 +2987,44 @@ class MusicService :
                 return@Factory dataSpec
             }
 
+            if (mediaId.isSaavnMediaId()) {
+                val cacheKey = "${mediaId}_JIO_${saavnQuality.name}"
+                songUrlCache[cacheKey]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+                    return@Factory dataSpec.withUri(it.first.toUri())
+                }
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    resolveSaavnStream(mediaId).getOrElse { throwable ->
+                        throw PlaybackException(
+                            throwable.message ?: getString(R.string.error_unknown),
+                            throwable,
+                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                        )
+                    }
+                }
+                songUrlCache[cacheKey] =
+                    streamUrl to System.currentTimeMillis() + 60 * 60 * 1000L
+                scope.launch(Dispatchers.IO) {
+                    recoverSong(mediaId, isOfflinePlayback = true)
+                }
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
+            if (playbackSource == PlaybackSource.JIOSAAVN && saavnMatchCache[mediaId] != SAAVN_NO_MATCH) {
+                val cacheKey = "${mediaId}_JIO_${saavnQuality.name}"
+                songUrlCache[cacheKey]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+                    return@Factory dataSpec.withUri(it.first.toUri())
+                }
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    resolveSaavnStream(mediaId).getOrNull()
+                }
+                if (streamUrl != null) {
+                    songUrlCache[cacheKey] =
+                        streamUrl to System.currentTimeMillis() + 60 * 60 * 1000L
+                    scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                    return@Factory dataSpec.withUri(streamUrl.toUri())
+                }
+            }
+
 
             
             var shouldBypassCache = bypassCacheForQualityChange.contains(mediaId)
@@ -3089,6 +3171,38 @@ class MusicService :
                 return@Factory dataSpec.buildUpon().setKey(targetCacheKey).setUri(streamUrl.toUri()).build()
             }
         }
+    }
+
+    private suspend fun resolveSaavnStream(mediaId: String): Result<String> = runCatching {
+        val bitrate = saavnQuality.bitrate
+        if (mediaId.isSaavnMediaId()) {
+            return@runCatching Saavn.streamUrl(mediaId, bitrate).getOrThrow()
+        }
+        val cachedMatch = saavnMatchCache[mediaId]
+        if (cachedMatch == SAAVN_NO_MATCH) {
+            error("No JioSaavn match")
+        }
+        val matchedId = cachedMatch ?: run {
+            val dbSong = database.song(mediaId).firstOrNull()
+            val playerItem = withContext(Dispatchers.Main) {
+                (0 until player.mediaItemCount).asSequence()
+                    .map { player.getMediaItemAt(it) }
+                    .firstOrNull { it.mediaId == mediaId }
+            }
+            val title = dbSong?.song?.title
+                ?: playerItem?.mediaMetadata?.title?.toString()
+                ?: error("Missing title for JioSaavn match")
+            val artist = dbSong?.artists?.joinToString { it.name }
+                ?: playerItem?.mediaMetadata?.artist?.toString()
+            val match = Saavn.matchSong(title, artist).getOrElse { throwable ->
+                if (throwable is IllegalArgumentException) {
+                    saavnMatchCache[mediaId] = SAAVN_NO_MATCH
+                }
+                throw throwable
+            }
+            SaavnIds.song(match.id).also { saavnMatchCache[mediaId] = it }
+        }
+        Saavn.streamUrl(matchedId, bitrate).getOrThrow()
     }
 
     private fun createMediaSourceFactory() =
@@ -3401,6 +3515,12 @@ class MusicService :
     suspend fun getStreamUrl(mediaId: String): String? {
         return withContext(Dispatchers.IO) {
             try {
+                if (mediaId.isSaavnMediaId()) {
+                    return@withContext resolveSaavnStream(mediaId).getOrNull()
+                }
+                if (playbackSource == PlaybackSource.JIOSAAVN) {
+                    resolveSaavnStream(mediaId).getOrNull()?.let { return@withContext it }
+                }
                 val playbackData = YTPlayerUtils.playerResponseForPlayback(
                     videoId = mediaId,
                     audioQuality = audioQuality,
@@ -4127,6 +4247,7 @@ class MusicService :
         private const val MIN_GAIN_MB = -1500 
 
         private const val TAG = "MusicService"
+        private const val SAAVN_NO_MATCH = "__none__"
 
         @Volatile
         var isRunning = false
@@ -4158,7 +4279,34 @@ class MusicService :
             for (mediaId in upcomingMediaIds) {
 
                 val isFullyDownloaded = downloadCache.getCachedSpans(mediaId).isNotEmpty()
-                if (!mediaId.isLocalMediaId() && !songUrlCache.containsKey("${mediaId}_${audioQuality.name}") && !isFullyDownloaded) {
+                if (mediaId.isLocalMediaId()) {
+                    // Local files do not need a stream URL.
+                } else if (mediaId.isSaavnMediaId() || playbackSource == PlaybackSource.JIOSAAVN) {
+                    val cacheKey = "${mediaId}_JIO_${saavnQuality.name}"
+                    val jioUrl = songUrlCache[cacheKey]?.first
+                        ?: resolveSaavnStream(mediaId).getOrNull()?.also { streamUrl ->
+                            songUrlCache[cacheKey] =
+                                streamUrl to System.currentTimeMillis() + 1000 * 60 * 60
+                            Timber.tag(TAG).d("Preloaded JioSaavn stream for $mediaId")
+                        }
+                    if (jioUrl == null &&
+                        !mediaId.isSaavnMediaId() &&
+                        !songUrlCache.containsKey("${mediaId}_${audioQuality.name}") &&
+                        !isFullyDownloaded
+                    ) {
+                        Timber.tag(TAG).d("JioSaavn miss, preloading YouTube stream for $mediaId")
+                        kotlin.runCatching {
+                            nirmal.auric.music.utils.YTPlayerUtils.playerResponseForPlayback(
+                                videoId = mediaId,
+                                audioQuality = audioQuality,
+                                connectivityManager = connectivityManager
+                            ).getOrNull()?.streamUrl?.let { streamUrl ->
+                                songUrlCache["${mediaId}_${audioQuality.name}"] =
+                                    Pair(streamUrl, System.currentTimeMillis() + 1000 * 60 * 60)
+                            }
+                        }
+                    }
+                } else if (!songUrlCache.containsKey("${mediaId}_${audioQuality.name}") && !isFullyDownloaded) {
                     Timber.tag(TAG).d("Preloading stream for $mediaId")
                     kotlin.runCatching {
                         val dbSong = database.song(mediaId).firstOrNull()

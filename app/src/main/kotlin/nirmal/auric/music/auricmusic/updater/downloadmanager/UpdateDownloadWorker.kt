@@ -46,8 +46,11 @@ class UpdateDownloadWorker(private val context: Context, workerParams: WorkerPar
             val url = URL(apkUrl)
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
+            connection.instanceFollowRedirects = true
             connection.connectTimeout = 15000
-            connection.readTimeout = 15000
+            connection.readTimeout = 30000
+            connection.setRequestProperty("User-Agent", "Auric-Music-App")
+            connection.setRequestProperty("Accept", "application/octet-stream")
             connection.connect()
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {

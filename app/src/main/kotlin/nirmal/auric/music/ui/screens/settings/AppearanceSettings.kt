@@ -185,7 +185,7 @@ highlightKey: String? = null) {
 
     val (useNewPlayerDesign, onUseNewPlayerDesignChange) = rememberPreference(
         UseNewPlayerDesignKey,
-        defaultValue = true
+        defaultValue = false
     )
     val (showCodecOnPlayer, onShowCodecOnPlayerChange) = rememberPreference(
         nirmal.auric.music.constants.ShowCodecOnPlayerKey,
@@ -206,7 +206,7 @@ highlightKey: String? = null) {
     val (playerBackground, onPlayerBackgroundChange) =
         rememberEnumPreference(
             PlayerBackgroundStyleKey,
-            defaultValue = PlayerBackgroundStyle.GRADIENT,
+            defaultValue = PlayerBackgroundStyle.APPLE_MUSIC,
         )
     val (miniPlayerBackground, onMiniPlayerBackgroundChange) =
         rememberEnumPreference(

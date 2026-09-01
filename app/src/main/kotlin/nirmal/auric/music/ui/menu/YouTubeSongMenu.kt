@@ -75,6 +75,7 @@ import nirmal.auric.music.extensions.toMediaItem
 import nirmal.auric.music.models.MediaMetadata
 import nirmal.auric.music.models.toSongEntity
 import nirmal.auric.music.models.toMediaMetadata
+import nirmal.auric.music.utils.isSaavnMediaId
 import nirmal.auric.music.playback.ExoDownloadService
 import nirmal.auric.music.playback.queues.YouTubeQueue
 import nirmal.auric.music.ui.component.ListDialog
@@ -273,7 +274,7 @@ fun YouTubeSongMenu(
         item {
             NewActionGrid(
                 actions = listOfNotNull(
-                    if (!isGuest) {
+                    if (!isGuest && !song.id.isSaavnMediaId()) {
                         NewAction(
                             icon = {
                                 Icon(

@@ -11,7 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
+import nirmal.auric.music.MainActivity
 import nirmal.auric.music.R
 
 object UpdateNotificationHelper {
@@ -30,9 +30,10 @@ object UpdateNotificationHelper {
             nm.createNotificationChannel(channel)
         }
 
-        
-        val apkUrl = "https://auricmusic.tndev.in"
-        val intent = Intent(Intent.ACTION_VIEW, apkUrl.toUri())
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_OPEN_UPDATE, true)
+        }
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pending = PendingIntent.getActivity(context, NOTIFICATION_ID, intent, flags)

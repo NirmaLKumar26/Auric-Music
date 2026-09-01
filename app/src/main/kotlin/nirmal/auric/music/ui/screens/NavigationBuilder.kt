@@ -439,6 +439,20 @@ fun NavGraphBuilder.navigationBuilder(
         SpotifyImportScreen(navController)
     }
 
+    composable("settings/saavn_import") {
+        nirmal.auric.music.ui.screens.saavn.SaavnImportScreen(navController)
+    }
+
+    composable(
+        route = "saavn/{type}/{id}",
+        arguments = listOf(
+            navArgument("type") { type = NavType.StringType },
+            navArgument("id") { type = NavType.StringType },
+        ),
+    ) {
+        nirmal.auric.music.ui.screens.saavn.SaavnCollectionScreen(navController, scrollBehavior)
+    }
+
     composable(route = "settings/integrations/listen_together") {
         ListenTogetherSettings(navController, scrollBehavior)
     }

@@ -33,8 +33,8 @@ android {
         applicationId = "nirmal.auric.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 154
-        versionName = "1.3.0"
+        versionCode = 500
+        versionName = "5.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -329,6 +329,7 @@ dependencies {
     implementation(project(":auricmusiccanvas"))
     implementation(project(":paxsenixlyrics"))
     implementation(project(":unison"))
+    implementation(project(":saavn"))
 
 
     implementation(libs.ktor.client.core)

@@ -1,6 +1,5 @@
 package nirmal.auric.music.auricmusic.component
 
-import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -8,7 +7,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -24,9 +22,9 @@ fun UpdateAvailableDialog(
     version: String,
     changelog: List<ChangelogSection>,
     description: String?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onUpdate: () -> Unit,
 ) {
-    val context = LocalContext.current
     val cardShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 30.dp,
         cornerRadiusTR = 30.dp,
@@ -159,8 +157,7 @@ fun UpdateAvailableDialog(
                     Button(
                         onClick = {
                             onDismiss()
-                            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://auricmusic.tndev.in"))
-                            context.startActivity(intent)
+                            onUpdate()
                         },
                         shape = actionShape,
                     ) {

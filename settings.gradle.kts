@@ -34,7 +34,8 @@ include(
     ":unison",
     ":core",
     ":lyrics",
-    ":playback"
+    ":playback",
+    ":saavn"
 )
 
 

@@ -17,6 +17,9 @@ fun String.isLocalMediaId(): Boolean {
     }.getOrDefault(false)
 }
 
+fun String.isSaavnMediaId(): Boolean =
+    com.music.saavn.SaavnIds.isSaavn(this)
+
 fun shareLocalAudio(
     context: Context,
     mediaId: String,

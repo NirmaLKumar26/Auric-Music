@@ -19,9 +19,14 @@ import nirmal.auric.music.constants.HideExplicitKey
 import nirmal.auric.music.constants.HideVideoSongsKey
 import nirmal.auric.music.constants.HideYoutubeShortsKey
 import nirmal.auric.music.models.ItemsPage
+import nirmal.auric.music.saavn.FILTER_JIOSAAVN
+import nirmal.auric.music.saavn.toSongItem
+import nirmal.auric.music.saavn.toYtItems
 import nirmal.auric.music.utils.dataStore
 import nirmal.auric.music.utils.get
 import nirmal.auric.music.utils.reportException
+import com.music.innertube.pages.SearchSummary
+import com.music.saavn.Saavn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,11 +61,53 @@ constructor(
                                 val hideExplicit = context.dataStore.get(HideExplicitKey, false)
                                 val hideVideoSongs = context.dataStore.get(HideVideoSongsKey, false)
                                 val hideYoutubeShorts = context.dataStore.get(HideYoutubeShortsKey, false)
-                                summaryPage =
-                                    it.filterExplicit(
-                                        hideExplicit,
-                                    ).filterVideoSongs(hideVideoSongs).filterYoutubeShorts(hideYoutubeShorts)
+                                val youtubePage = it.filterExplicit(
+                                    hideExplicit,
+                                ).filterVideoSongs(hideVideoSongs).filterYoutubeShorts(hideYoutubeShorts)
+                                val saavnSection = Saavn.search(query).getOrNull()?.songs
+                                    ?.filter { song -> !hideExplicit || !song.explicit }
+                                    ?.take(8)
+                                    ?.map { song -> song.toSongItem() }
+                                    .orEmpty()
+                                summaryPage = if (saavnSection.isEmpty()) {
+                                    youtubePage
+                                } else {
+                                    youtubePage.copy(
+                                        summaries = youtubePage.summaries + SearchSummary(
+                                            title = "JioSaavn",
+                                            items = saavnSection,
+                                        )
+                                    )
+                                }
                             }.onFailure {
+                                val saavn = Saavn.search(query).getOrNull()
+                                if (saavn != null && saavn.songs.isNotEmpty()) {
+                                    val hideExplicit = context.dataStore.get(HideExplicitKey, false)
+                                    summaryPage = SearchSummaryPage(
+                                        listOf(
+                                            SearchSummary(
+                                                title = "JioSaavn",
+                                                items = saavn.songs
+                                                    .filter { song -> !hideExplicit || !song.explicit }
+                                                    .map { song -> song.toSongItem() },
+                                            )
+                                        )
+                                    )
+                                } else {
+                                    reportException(it)
+                                }
+                            }
+                    }
+                } else if (filter == FILTER_JIOSAAVN) {
+                    if (viewStateMap[filter.value] == null) {
+                        Saavn.search(query)
+                            .onSuccess { result ->
+                                val hideExplicit = context.dataStore.get(HideExplicitKey, false)
+                                val items = result.toYtItems()
+                                    .filter { item -> !hideExplicit || !item.explicit }
+                                viewStateMap[filter.value] = ItemsPage(items, continuation = "2")
+                            }
+                            .onFailure {
                                 reportException(it)
                             }
                     }
@@ -102,6 +149,18 @@ constructor(
             val viewState = viewStateMap[filter] ?: return@launch
             val continuation = viewState.continuation
             if (continuation != null) {
+                if (filter == FILTER_JIOSAAVN.value) {
+                    val page = continuation.toIntOrNull() ?: return@launch
+                    val searchResult = Saavn.search(query, page).getOrNull() ?: return@launch
+                    val hideExplicit = context.dataStore.get(HideExplicitKey, false)
+                    val newItems = searchResult.toYtItems()
+                        .filter { item -> !hideExplicit || !item.explicit }
+                    viewStateMap[filter] = ItemsPage(
+                        (viewState.items + newItems).distinctBy { it.id },
+                        continuation = (page + 1).toString().takeIf { newItems.isNotEmpty() }
+                    )
+                    return@launch
+                }
                 val searchResult =
                     YouTube.searchContinuation(continuation).getOrNull() ?: return@launch
                 val hideExplicit = context.dataStore.get(HideExplicitKey, false)

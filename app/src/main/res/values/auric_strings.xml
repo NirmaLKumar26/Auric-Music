@@ -1025,4 +1025,20 @@
     <string name="lossless_audio_warning">Lossless audio requires a fast connection. It may consume more data and battery. Continue?</string>
     <string name="legacy_icon">Legacy Icon</string>
     <string name="legacy_icon_desc">Revert the app icon back to the original legacy design</string>
+    <string name="playback_source">Play from</string>
+    <string name="playback_source_youtube">YouTube Music</string>
+    <string name="playback_source_jiosaavn">JioSaavn</string>
+    <string name="playback_source_youtube_desc">Play songs from YouTube Music.</string>
+    <string name="playback_source_jiosaavn_desc">Play from JioSaavn when a match is found. If the song is not on JioSaavn, it plays from YouTube Music.</string>
+    <string name="saavn_quality">JioSaavn Quality</string>
+    <string name="saavn_quality_96">96 kbps</string>
+    <string name="saavn_quality_160">160 kbps</string>
+    <string name="saavn_quality_320">320 kbps</string>
+    <string name="filter_jiosaavn">JioSaavn</string>
+    <string name="saavn_import_title">Import from JioSaavn</string>
+    <string name="saavn_import_desc">Paste a JioSaavn song, album, or playlist link to open it here, the same way Auric Tunes links Saavn.</string>
+    <string name="saavn_import_hint">https://www.jiosaavn.com/…</string>
+    <string name="saavn_import_open">Open in Auric Music</string>
+    <string name="upi_support_id" translatable="false">nirmalkumar.palanisamy@ptyes</string>
+    <string name="upi_support_url" translatable="false">https://intradeus.github.io/http-protocol-redirector/?r=upi://pay?pa=nirmalkumar.palanisamy@ptyes&amp;pn=Nirmal&amp;am=&amp;tn=Thank%20You%20so%20much%20for%20this%20support</string>
 </resources>
