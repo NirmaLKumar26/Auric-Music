@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "529963670721",
+    "project_id": "auric-bb03d",
+    "storage_bucket": "auric-bb03d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:529963670721:android:7bf2944a0d6c89ef018840",
+        "android_client_info": {
+          "package_name": "nirmal.auric.music"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMbXK6fYQOlM3NDy6D4yHnHqu4SE0n1rw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:529963670721:android:7bf2944a0d6c89ef018840",
+        "android_client_info": {
+          "package_name": "nirmal.auric.music.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMbXK6fYQOlM3NDy6D4yHnHqu4SE0n1rw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

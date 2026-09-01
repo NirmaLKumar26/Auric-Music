@@ -1,0 +1,12 @@
+{
+  "upcoming_update": {
+    "version": "Next Release",
+    "release_date": "TBD",
+    "features": [],
+    "bug_fixes": [
+      "Fixed #252: Lyrics Provider Priority Not Respected",
+      "Fixed #242: Playlist Sorting Broken"
+    ],
+    "contributors": []
+  }
+}
