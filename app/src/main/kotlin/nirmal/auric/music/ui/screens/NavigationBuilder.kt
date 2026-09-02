@@ -113,6 +113,17 @@ fun NavGraphBuilder.navigationBuilder(
         HistoryScreen(navController)
     }
 
+    composable(Screens.Profile.route) {
+        AccountSettingsScreen(navController, scrollBehavior)
+    }
+
+    composable(
+        route = "language/{lang}",
+        arguments = listOf(navArgument("lang") { type = NavType.StringType }),
+    ) {
+        LanguageSongsScreen(navController, scrollBehavior)
+    }
+
     composable("ambient_mode") {
         AmbientModeScreen(navController)
     }

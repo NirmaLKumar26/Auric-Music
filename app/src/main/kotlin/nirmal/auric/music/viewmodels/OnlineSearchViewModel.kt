@@ -20,6 +20,7 @@ import nirmal.auric.music.constants.HideVideoSongsKey
 import nirmal.auric.music.constants.HideYoutubeShortsKey
 import nirmal.auric.music.models.ItemsPage
 import nirmal.auric.music.saavn.FILTER_JIOSAAVN
+import nirmal.auric.music.saavn.toPlaylistItem
 import nirmal.auric.music.saavn.toSongItem
 import nirmal.auric.music.saavn.toYtItems
 import nirmal.auric.music.utils.dataStore
@@ -64,33 +65,45 @@ constructor(
                                 val youtubePage = it.filterExplicit(
                                     hideExplicit,
                                 ).filterVideoSongs(hideVideoSongs).filterYoutubeShorts(hideYoutubeShorts)
-                                val saavnSection = Saavn.search(query).getOrNull()?.songs
+                                val saavn = Saavn.search(query).getOrNull()
+                                val saavnSongs = saavn?.songs
                                     ?.filter { song -> !hideExplicit || !song.explicit }
                                     ?.take(8)
                                     ?.map { song -> song.toSongItem() }
                                     .orEmpty()
-                                summaryPage = if (saavnSection.isEmpty()) {
-                                    youtubePage
-                                } else {
-                                    youtubePage.copy(
-                                        summaries = youtubePage.summaries + SearchSummary(
-                                            title = "JioSaavn",
-                                            items = saavnSection,
-                                        )
+                                val saavnPlaylists = saavn?.playlists
+                                    ?.take(8)
+                                    ?.map { playlist -> playlist.toPlaylistItem() }
+                                    .orEmpty()
+                                summaryPage = youtubePage.copy(
+                                    summaries = youtubePage.summaries + listOfNotNull(
+                                        saavnSongs.takeIf { it.isNotEmpty() }?.let {
+                                            SearchSummary(title = "JioSaavn", items = it)
+                                        },
+                                        saavnPlaylists.takeIf { it.isNotEmpty() }?.let {
+                                            SearchSummary(title = "JioSaavn Playlists", items = it)
+                                        },
                                     )
-                                }
+                                )
                             }.onFailure {
                                 val saavn = Saavn.search(query).getOrNull()
-                                if (saavn != null && saavn.songs.isNotEmpty()) {
-                                    val hideExplicit = context.dataStore.get(HideExplicitKey, false)
+                                val hideExplicit = context.dataStore.get(HideExplicitKey, false)
+                                val saavnSongs = saavn?.songs
+                                    ?.filter { song -> !hideExplicit || !song.explicit }
+                                    ?.map { song -> song.toSongItem() }
+                                    .orEmpty()
+                                val saavnPlaylists = saavn?.playlists
+                                    ?.map { playlist -> playlist.toPlaylistItem() }
+                                    .orEmpty()
+                                if (saavnSongs.isNotEmpty() || saavnPlaylists.isNotEmpty()) {
                                     summaryPage = SearchSummaryPage(
-                                        listOf(
-                                            SearchSummary(
-                                                title = "JioSaavn",
-                                                items = saavn.songs
-                                                    .filter { song -> !hideExplicit || !song.explicit }
-                                                    .map { song -> song.toSongItem() },
-                                            )
+                                        listOfNotNull(
+                                            saavnSongs.takeIf { it.isNotEmpty() }?.let {
+                                                SearchSummary(title = "JioSaavn", items = it)
+                                            },
+                                            saavnPlaylists.takeIf { it.isNotEmpty() }?.let {
+                                                SearchSummary(title = "JioSaavn Playlists", items = it)
+                                            },
                                         )
                                     )
                                 } else {

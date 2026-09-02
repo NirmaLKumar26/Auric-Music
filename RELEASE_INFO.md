@@ -1,8 +1,25 @@
 # Auric Music Releases
 
-This document tracks all available releases for Auric Music. 
+This document tracks all available releases for Auric Music.
 
-## [v1.2.2] - 2026-08-28 (Latest)
+## [v5.0.0] - 2026-09-01 (Latest)
+[Download on GitHub](https://github.com/NirmaLKumar26/Auric-Music/releases/tag/v5.0.0)
+
+**Added**
+- JioSaavn playback: search, play, collections, URL import, and deep links.
+- **Play from** setting (YouTube Music or JioSaavn). When JioSaavn is selected, catalog songs are matched and streamed from JioSaavn.
+- **JioSaavn Quality** setting: 96 / 160 / 320 kbps.
+- In-app GitHub auto-update: checks the latest GitHub release on launch, then downloads and installs the APK in the app.
+
+**Changed**
+- If a song is not available on JioSaavn while Play from is set to JioSaavn, playback falls back to YouTube Music.
+- Support is UPI only (`nirmalkumar.palanisamy@ptyes`). Buy Me a Coffee, Patreon, and cryptocurrency options were removed.
+
+**Fixed**
+- In-app updater now finds GitHub APKs (including arm64 builds) instead of opening the website.
+- Update notifications and the Update button open the in-app updater.
+
+## [v1.2.2] - 2026-08-28
 [Download on GitHub](https://github.com/NirmaLKumar26/Auric-Music/releases/tag/v1.2.2)
 
 **Bug Fixes**

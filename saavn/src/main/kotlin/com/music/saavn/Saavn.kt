@@ -21,6 +21,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
@@ -69,30 +71,63 @@ object Saavn {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return@runCatching SaavnSearchResult()
 
-        val songs = parseSongList(
+        coroutineScope {
+            val songsDeferred = async {
+                parseSongList(
+                    api(
+                        "__call" to "search.getResults",
+                        "q" to trimmed,
+                        "p" to page.toString(),
+                        "n" to "20",
+                        "api_version" to "4",
+                        "ctx" to "web6dot0",
+                    )
+                )
+            }
+            val playlistsDeferred = async {
+                parsePlaylists(
+                    api(
+                        "__call" to "search.getPlaylistResults",
+                        "q" to trimmed,
+                        "p" to page.toString(),
+                        "n" to "20",
+                        "api_version" to "4",
+                        "ctx" to "web6dot0",
+                    )
+                )
+            }
+            val extraDeferred = if (page == 1) {
+                async {
+                    parseAutocomplete(
+                        api(
+                            "__call" to "autocomplete.get",
+                            "query" to trimmed,
+                            "includeMetaTags" to "1",
+                        )
+                    )
+                }
+            } else {
+                null
+            }
+
+            val extra = extraDeferred?.await() ?: SaavnSearchResult()
+            extra.copy(
+                songs = (songsDeferred.await() + extra.songs).distinctBy { it.id },
+                playlists = (playlistsDeferred.await() + extra.playlists).distinctBy { it.id },
+            )
+        }
+    }
+
+    suspend fun featuredPlaylists(limit: Int = 10): Result<List<SaavnPlaylist>> = runCatching {
+        parsePlaylists(
             api(
-                "__call" to "search.getResults",
-                "q" to trimmed,
-                "p" to page.toString(),
-                "n" to "20",
+                "__call" to "content.getFeaturedPlaylists",
+                "p" to "1",
+                "n" to limit.toString(),
                 "api_version" to "4",
                 "ctx" to "web6dot0",
             )
-        )
-
-        val extra = if (page == 1) {
-            parseAutocomplete(
-                api(
-                    "__call" to "autocomplete.get",
-                    "query" to trimmed,
-                    "includeMetaTags" to "1",
-                )
-            )
-        } else {
-            SaavnSearchResult()
-        }
-
-        extra.copy(songs = (songs + extra.songs).distinctBy { it.id })
+        ).take(limit)
     }
 
     suspend fun song(id: String): Result<SaavnSong?> = runCatching {
@@ -337,14 +372,16 @@ object Saavn {
         val array = listArray(element)
         return array.mapNotNull { obj ->
             val more = asObject(obj["more_info"]) ?: JsonObject(emptyMap())
-            val id = obj.str("id") ?: return@mapNotNull null
+            val id = obj.str("id") ?: obj.str("listid") ?: more.str("listid") ?: return@mapNotNull null
             SaavnPlaylist(
                 id = id,
-                title = decode(obj.str("title") ?: return@mapNotNull null).ifBlank { return@mapNotNull null },
-                subtitle = decode(obj.str("subtitle") ?: more.str("firstname")).ifBlank { null },
+                title = decode(obj.str("title") ?: obj.str("listname") ?: return@mapNotNull null)
+                    .ifBlank { return@mapNotNull null },
+                subtitle = decode(obj.str("subtitle") ?: more.str("firstname") ?: more.str("lastname"))
+                    .ifBlank { null },
                 imageUrl = upgradeImage(obj.str("image") ?: ""),
-                permaUrl = obj.str("perma_url"),
-                songCount = (more.str("song_count") ?: obj.str("song_count"))?.toIntOrNull(),
+                permaUrl = obj.str("perma_url") ?: more.str("perma_url"),
+                songCount = (more.str("song_count") ?: obj.str("song_count") ?: more.str("count"))?.toIntOrNull(),
             )
         }
     }
@@ -368,6 +405,8 @@ object Saavn {
         val array = when {
             element is JsonArray -> element
             obj?.get("data") is JsonArray -> obj["data"]!!.jsonArray
+            obj?.get("results") is JsonArray -> obj["results"]!!.jsonArray
+            obj?.get("content") is JsonArray -> obj["content"]!!.jsonArray
             else -> JsonArray(emptyList())
         }
         return array.mapNotNull { asObject(it) }

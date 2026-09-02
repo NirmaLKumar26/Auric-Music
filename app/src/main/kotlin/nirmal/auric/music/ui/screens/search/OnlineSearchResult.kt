@@ -84,6 +84,7 @@ import nirmal.auric.music.models.toMediaMetadata
 import nirmal.auric.music.playback.queues.YouTubeQueue
 import nirmal.auric.music.playback.queues.ListQueue
 import nirmal.auric.music.saavn.FILTER_JIOSAAVN
+import nirmal.auric.music.saavn.navigateSaavnUrl
 import nirmal.auric.music.extensions.toMediaItem
 import nirmal.auric.music.utils.isSaavnMediaId
 import nirmal.auric.music.ui.component.ChipsRow
@@ -152,6 +153,9 @@ fun OnlineSearchResult(
             if (searchQuery.isNotEmpty()) {
                 isSearchFocused = false
                 focusManager.clearFocus()
+                if (navController.navigateSaavnUrl(searchQuery)) {
+                    return@remember
+                }
 
                 navController.navigate("search/${URLEncoder.encode(searchQuery, "UTF-8")}") {
                     popUpTo("search/${URLEncoder.encode(decodedQuery, "UTF-8")}") {

@@ -10,44 +10,36 @@ package nirmal.auric.music.ui.component
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import nirmal.auric.music.ui.player.FloatingMiniPlayer
 import nirmal.auric.music.ui.screens.Screens
 import nirmal.auric.music.ui.component.floatingtabbar.FloatingTabBar
 import nirmal.auric.music.ui.component.floatingtabbar.FloatingTabBarDefaults
-import nirmal.auric.music.ui.component.floatingtabbar.FloatingTabBarScrollConnection
 
-/**
- * The iOS 26 style floating navigation bar, an alternative to [AppNavigationBar].
- *
- * Collapses to an inline pill while scrolling down (driven by [scrollConnection]) and
- * expands back on scroll up. The search destination is rendered as the standalone
- * circular tab. When the liquid glass effect is enabled for the navigation bar, the tab
- * bar surfaces sample the app backdrop through [Modifier.liquidGlass].
- *
- * When [showPlayerAccessory] is true the now playing controls dock into the bar as an
- * accessory (a pill above the tabs when expanded, inline between the tab pill and the
- * search tab when collapsed) and [onAccessoryClick] opens the full player.
- */
 @Composable
 fun AppFloatingNavBar(
     navigationItems: List<Screens>,
     currentRoute: String?,
     onItemClick: (Screens, Boolean) -> Unit,
-    scrollConnection: FloatingTabBarScrollConnection,
     modifier: Modifier = Modifier,
     pureBlack: Boolean = false,
     showPlayerAccessory: Boolean = false,
@@ -69,16 +61,20 @@ fun AppFloatingNavBar(
         Color.White
     }
 
-    val selectedContentColor = when {
+    val selectedIconColor = when {
         useGlass -> adaptiveTextColor
-        pureBlack -> Color.White
-        else -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onPrimary
     }
     val unselectedContentColor = when {
         useGlass -> adaptiveTextColor.copy(alpha = 0.65f)
-        pureBlack -> Color.White.copy(alpha = 0.65f)
+        pureBlack -> Color.White.copy(alpha = 0.7f)
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val selectedLabelColor = when {
+        useGlass -> adaptiveTextColor
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val selectedChipColor = MaterialTheme.colorScheme.primary
 
     val tabBarContentModifier = if (useGlass) {
         Modifier.liquidGlass(
@@ -93,27 +89,11 @@ fun AppFloatingNavBar(
         isRouteSelected(currentRoute, screen.route, navigationItems)
     }?.route
 
-    val searchScreen = navigationItems.firstOrNull { it == Screens.Search }
-    val tabScreens = remember(navigationItems) { navigationItems.filter { it != Screens.Search } }
-
     val accessoryContentColor = when {
         useGlass -> adaptiveTextColor
         pureBlack -> Color.White
         else -> MaterialTheme.colorScheme.onSurface
     }
-    val inlineAccessory: (@Composable SharedTransitionScope.(Modifier, AnimatedVisibilityScope) -> Unit)? =
-        if (showPlayerAccessory) {
-            { accessoryModifier, _ ->
-                FloatingMiniPlayer(
-                    isInline = true,
-                    contentColor = accessoryContentColor,
-                    onClick = onAccessoryClick,
-                    modifier = accessoryModifier.then(tabBarContentModifier),
-                )
-            }
-        } else {
-            null
-        }
     val expandedAccessory: (@Composable SharedTransitionScope.(Modifier, AnimatedVisibilityScope) -> Unit)? =
         if (showPlayerAccessory) {
             { accessoryModifier, _ ->
@@ -129,57 +109,46 @@ fun AppFloatingNavBar(
         }
 
     FloatingTabBar(
+        isInline = false,
         selectedTabKey = selectedTabKey,
-        scrollConnection = scrollConnection,
         modifier = modifier,
         tabBarContentModifier = tabBarContentModifier,
-        inlineAccessory = inlineAccessory,
         expandedAccessory = expandedAccessory,
         colors = FloatingTabBarDefaults.colors(
             backgroundColor = backgroundColor,
             accessoryBackgroundColor = backgroundColor,
         ),
-        // The tab content lambdas are captured once per contentKey, so anything they
-        // close over (selection, colors) must be part of the key to avoid stale UI.
-        contentKey = listOf(selectedTabKey, navigationItems, selectedContentColor, unselectedContentColor),
+        contentKey = listOf(selectedTabKey, navigationItems, selectedChipColor, unselectedContentColor),
     ) {
-        tabScreens.forEach { screen ->
+        navigationItems.forEach { screen ->
             val isSelected = screen.route == selectedTabKey
             tab(
                 key = screen.route,
                 title = {
                     Text(
                         text = stringResource(screen.titleId),
-                        color = if (isSelected) selectedContentColor else unselectedContentColor,
+                        color = if (isSelected) selectedLabelColor else unselectedContentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 icon = {
-                    Icon(
-                        painter = painterResource(
-                            if (isSelected) screen.iconIdActive else screen.iconIdInactive
-                        ),
-                        contentDescription = stringResource(screen.titleId),
-                        tint = if (isSelected) selectedContentColor else unselectedContentColor,
-                    )
-                },
-                onClick = { onItemClick(screen, isSelected) },
-            )
-        }
-
-        searchScreen?.let { screen ->
-            val isSelected = screen.route == selectedTabKey
-            standaloneTab(
-                key = screen.route,
-                icon = {
-                    Icon(
-                        painter = painterResource(
-                            if (isSelected) screen.iconIdActive else screen.iconIdInactive
-                        ),
-                        contentDescription = stringResource(screen.titleId),
-                        tint = if (isSelected) selectedContentColor else unselectedContentColor,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) selectedChipColor else Color.Transparent)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (isSelected) screen.iconIdActive else screen.iconIdInactive
+                            ),
+                            contentDescription = stringResource(screen.titleId),
+                            tint = if (isSelected) selectedIconColor else unselectedContentColor,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 },
                 onClick = { onItemClick(screen, isSelected) },
             )

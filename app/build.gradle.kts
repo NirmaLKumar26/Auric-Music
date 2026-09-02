@@ -283,6 +283,7 @@ dependencies {
     implementation(libs.palette)
     implementation(libs.materialKolor)
     implementation(libs.androidx.browser)
+    implementation(libs.androidx.webkit)
 
     implementation(libs.appcompat)
 

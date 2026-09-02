@@ -84,6 +84,7 @@ import nirmal.auric.music.constants.SearchSource
 import nirmal.auric.music.constants.SearchSourceKey
 import nirmal.auric.music.db.entities.SearchHistory
 import nirmal.auric.music.playback.queues.YouTubeQueue
+import nirmal.auric.music.saavn.navigateSaavnUrl
 import nirmal.auric.music.ui.component.NavigationTitle
 import nirmal.auric.music.utils.rememberEnumPreference
 import nirmal.auric.music.utils.rememberPreference
@@ -180,7 +181,9 @@ fun SearchScreen(
                     }
 
                     null -> {
-                        navController.navigate("search/${URLEncoder.encode(searchQuery, "UTF-8")}")
+                        if (!navController.navigateSaavnUrl(searchQuery)) {
+                            navController.navigate("search/${URLEncoder.encode(searchQuery, "UTF-8")}")
+                        }
                     }
                 }
 
@@ -213,7 +216,9 @@ fun SearchScreen(
                     }
 
                     null -> {
-                        navController.navigate("search/${URLEncoder.encode(searchQuery, "UTF-8")}")
+                        if (!navController.navigateSaavnUrl(searchQuery)) {
+                            navController.navigate("search/${URLEncoder.encode(searchQuery, "UTF-8")}")
+                        }
                     }
                 }
 

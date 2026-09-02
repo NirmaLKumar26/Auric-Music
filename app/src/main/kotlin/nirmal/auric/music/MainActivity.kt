@@ -37,6 +37,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -637,9 +638,15 @@ class MainActivity : ComponentActivity() {
                 val (listenTogetherInTopBar) = rememberPreference(ListenTogetherInTopBarKey, defaultValue = true)
                 val navigationItems = remember(listenTogetherInTopBar) { 
                     if (listenTogetherInTopBar) {
-                        Screens.MainScreens.filter { it != Screens.ListenTogether }
-                    } else {
                         Screens.MainScreens
+                    } else {
+                        listOf(
+                            Screens.Home,
+                            Screens.Search,
+                            Screens.ListenTogether,
+                            Screens.Library,
+                            Screens.Profile,
+                        )
                     }
                 }
                 val (useNewMiniPlayerDesign) = rememberPreference(UseNewMiniPlayerDesignKey, defaultValue = true)
@@ -659,6 +666,7 @@ class MainActivity : ComponentActivity() {
                         Screens.Home.route,
                         Screens.Library.route,
                         Screens.ListenTogether.route,
+                        Screens.Profile.route,
                         "settings",
                     )
                 }
@@ -691,6 +699,13 @@ class MainActivity : ComponentActivity() {
                 val inSearchScreen by remember {
                     derivedStateOf { currentRoute?.startsWith("search/") == true }
                 }
+                val isLoginScreen = currentRoute == "login"
+                val hidePlayerChrome = isLoginScreen ||
+                    currentRoute == "update" ||
+                    currentRoute == "listen_together/chat" ||
+                    currentRoute == "ambient_mode" ||
+                    currentRoute == "uptime" ||
+                    currentRoute?.startsWith("settings") == true
                 val navigationItemRoutes = remember(navigationItems) {
                     navigationItems.map { it.route }.toSet()
                 }
@@ -702,7 +717,8 @@ class MainActivity : ComponentActivity() {
                         currentRoute!!.startsWith("album/") ||
                         currentRoute!!.startsWith("online_playlist/") ||
                         currentRoute!!.startsWith("local_playlist/") ||
-                        currentRoute!!.startsWith("artist/")
+                        currentRoute!!.startsWith("artist/") ||
+                        currentRoute!!.startsWith("language/")
                 }
 
                 val isLandscape = configuration.containerDpSize.width > configuration.containerDpSize.height
@@ -717,7 +733,7 @@ class MainActivity : ComponentActivity() {
 
                 val navigationBarHeight by animateDpAsState(
                     targetValue = if (shouldShowNavigationBar && !showRail) NavigationBarHeight else 0.dp,
-                    animationSpec = NavigationBarAnimationSpec,
+                    animationSpec = if (isLoginScreen) snap() else NavigationBarAnimationSpec,
                     label = "navBarHeight",
                 )
 
@@ -726,7 +742,7 @@ class MainActivity : ComponentActivity() {
 
                 val playerBottomSheetState = rememberBottomSheetState(
                     dismissedBound = 0.dp,
-                    collapsedBound = if (useFloatingNavBar && !showRail && shouldShowNavigationBar) {
+                    collapsedBound = if (useFloatingNavBar && !showRail && (shouldShowNavigationBar || isLoginScreen)) {
                         0.dp
                     } else {
                         bottomInset +
@@ -769,12 +785,13 @@ class MainActivity : ComponentActivity() {
                     shouldShowNavigationBar,
                     playerBottomSheetState.isDismissed,
                     showRail,
+                    hidePlayerChrome,
                 ) {
                     var bottom = bottomInset
                     if (shouldShowNavigationBar && !showRail) {
                         bottom += NavigationBarHeight
                     }
-                    if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
+                    if (!hidePlayerChrome && !playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
                     windowsInsets
                         .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
                         .add(WindowInsets(top = AppBarHeight, bottom = bottom))
@@ -937,6 +954,7 @@ class MainActivity : ComponentActivity() {
                     Screens.Search.route -> stringResource(R.string.search)
                     Screens.Library.route -> stringResource(R.string.filter_library)
                     Screens.ListenTogether.route -> stringResource(R.string.together)
+                    Screens.Profile.route -> stringResource(R.string.profile)
                     else -> ""
                 }
 
@@ -1099,7 +1117,23 @@ class MainActivity : ComponentActivity() {
                                         playerBottomSheetState.collapseSoft()
                                     }
 
-                                    if (isSelected) {
+                                    if (screen == Screens.Home) {
+                                        val atHome = navController.currentDestination?.route == Screens.Home.route
+                                        if (atHome) {
+                                            navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
+                                            coroutineScope.launch {
+                                                topAppBarScrollBehavior.state.resetHeightOffset()
+                                            }
+                                        } else if (!navController.popBackStack(Screens.Home.route, inclusive = false)) {
+                                            navController.navigate(Screens.Home.route) {
+                                                popUpTo(navController.graph.startDestinationId) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                    } else if (isSelected) {
                                         navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
                                         coroutineScope.launch {
                                             topAppBarScrollBehavior.state.resetHeightOffset()
@@ -1116,7 +1150,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (!showRail && currentRoute != "update" && currentRoute != "listen_together/chat" && currentRoute != "ambient_mode" && currentRoute != "uptime" && currentRoute?.startsWith("settings") != true) {
+                            if (!showRail && !hidePlayerChrome) {
                                 Box {
                                     BottomSheetPlayer(
                                         state = playerBottomSheetState,
@@ -1141,7 +1175,6 @@ class MainActivity : ComponentActivity() {
                                             navigationItems = navigationItems,
                                             currentRoute = currentRoute,
                                             onItemClick = onNavItemClick,
-                                            scrollConnection = floatingNavBarScrollConnection,
                                             pureBlack = pureBlack,
                                             showPlayerAccessory = hasDockedPlayerAccessory,
                                             onAccessoryClick = { playerBottomSheetState.expandSoft() },
@@ -1216,7 +1249,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             } else {
-                                if (currentRoute != "update" && currentRoute != "listen_together/chat" && currentRoute != "ambient_mode" && currentRoute != "uptime" && currentRoute?.startsWith("settings") != true) {
+                                if (!hidePlayerChrome) {
                                     BottomSheetPlayer(
                                         state = playerBottomSheetState,
                                         navController = navController,
@@ -1240,9 +1273,15 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier
                             .fillMaxSize()
-                            .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
                             .then(
-                                if (useFloatingNavBar) {
+                                if (isLoginScreen) {
+                                    Modifier
+                                } else {
+                                    Modifier.nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
+                                }
+                            )
+                            .then(
+                                if (useFloatingNavBar && !isLoginScreen) {
                                     Modifier.nestedScroll(floatingNavBarScrollConnection)
                                 } else {
                                     Modifier
@@ -1256,7 +1295,23 @@ class MainActivity : ComponentActivity() {
                                         playerBottomSheetState.collapseSoft()
                                     }
 
-                                    if (isSelected) {
+                                    if (screen == Screens.Home) {
+                                        val atHome = navController.currentDestination?.route == Screens.Home.route
+                                        if (atHome) {
+                                            navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
+                                            coroutineScope.launch {
+                                                topAppBarScrollBehavior.state.resetHeightOffset()
+                                            }
+                                        } else if (!navController.popBackStack(Screens.Home.route, inclusive = false)) {
+                                            navController.navigate(Screens.Home.route) {
+                                                popUpTo(navController.graph.startDestinationId) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                    } else if (isSelected) {
                                         navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
                                         coroutineScope.launch {
                                             topAppBarScrollBehavior.state.resetHeightOffset()
