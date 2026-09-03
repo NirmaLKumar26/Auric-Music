@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -317,22 +318,17 @@ fun UpdateScreen(navController: NavHostController) {
                                                 downloadProgress = 0f
                                                 return@AnimatedActionButton
                                             }
-                                            file.let { f ->
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                    if (!context.packageManager.canRequestPackageInstalls()) {
-                                                        val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                                            data = Uri.parse("package:${context.packageName}")
-                                                        }
-                                                        context.startActivity(intent)
-                                                        return@let
-                                                    }
-                                                }
-                                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.FileProvider", file)
-                                                val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                                                    setDataAndType(uri, "application/vnd.android.package-archive")
-                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                }
+                                            if (!context.canRequestApkInstalls()) {
+                                                context.openUnknownSourcesSettings()
+                                                return@AnimatedActionButton
+                                            }
+                                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.FileProvider", file)
+                                            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(uri, "application/vnd.android.package-archive")
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            runCatching {
                                                 ContextCompat.startActivity(context, installIntent, null)
                                             }
                                         } else {
@@ -840,4 +836,21 @@ fun String.extractUrls(): List<Pair<IntRange, String>> {
     }
 
     return urlList
+}
+
+private fun Context.canRequestApkInstalls(): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+    return try {
+        packageManager.canRequestPackageInstalls()
+    } catch (_: SecurityException) {
+        false
+    }
+}
+
+private fun Context.openUnknownSourcesSettings() {
+    val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+        data = Uri.parse("package:$packageName")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { startActivity(intent) }
 }

@@ -24,7 +24,7 @@ Auric Music delivers a seamless, premium listening experience by leveraging YouT
 > **Update Schedule (Effective Sept 1, 2026):** Auric Music receives weekly updates! New releases roll out every Monday or Tuesday (IST), featuring the previous week's improvements. This new schedule helps us push crucial updates faster and keep a proper track of development. You can also track upcoming changes directly in the app by going to **Settings > System Update > Upcoming Update**.
 
 Join our community to get support, share feedback, and stay updated on the latest development!
-- **Discord**: [Join the Auric Music Discord server](https://discord.gg/Xt5hgsJJuA)
+- **Discord**: [Join the Auric Music Discord server](https://discord.gg/BRmuQrxXMy)
 
 ---
 
