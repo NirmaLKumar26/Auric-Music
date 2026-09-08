@@ -81,6 +81,9 @@ import nirmal.auric.music.constants.EnableExportAsMp3Key
 import nirmal.auric.music.constants.ExportDirectoryUriKey
 import nirmal.auric.music.constants.ExportedSongIdsKey
 import nirmal.auric.music.constants.ExportingSongIdsKey
+import nirmal.auric.music.constants.ExportProgressKey
+import nirmal.auric.music.constants.exportProgressPercent
+import nirmal.auric.music.constants.ShowLyricsOnPlayerKey
 import nirmal.auric.music.constants.ListItemHeight
 import nirmal.auric.music.listentogether.ConnectionState
 import nirmal.auric.music.listentogether.ListenTogetherEvent
@@ -171,6 +174,11 @@ fun PlayerMenu(
     val (exportDirectoryUri) = rememberPreference(key = ExportDirectoryUriKey, defaultValue = "")
     val (exportingSongIds) = rememberPreference(key = ExportingSongIdsKey, defaultValue = "")
     val (exportedSongIds) = rememberPreference(key = ExportedSongIdsKey, defaultValue = "")
+    val (showLyricsOnPlayer, onShowLyricsOnPlayerChange) = rememberPreference(key = ShowLyricsOnPlayerKey, defaultValue = true)
+    val (exportProgressString) = rememberPreference(key = ExportProgressKey, defaultValue = "")
+    val exportProgress = remember(exportProgressString, mediaMetadata.id) {
+        exportProgressPercent(exportProgressString, mediaMetadata.id)
+    }
 
     val isExporting = remember(exportingSongIds, mediaMetadata.id) { exportingSongIds.split(",").contains(mediaMetadata.id) }
     val isExported = remember(exportedSongIds, mediaMetadata.id) { exportedSongIds.split(",").contains(mediaMetadata.id) }
@@ -470,6 +478,22 @@ fun PlayerMenu(
                             }
                         )
                     )
+                    add(
+                        Material3MenuItemData(
+                            title = { Text(text = stringResource(if (showLyricsOnPlayer) R.string.hide_lyrics else R.string.show_lyrics)) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.lyrics),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            },
+                            onClick = {
+                                onShowLyricsOnPlayerChange(!showLyricsOnPlayer)
+                                onDismiss()
+                            }
+                        )
+                    )
                 }
             )
         }
@@ -566,12 +590,17 @@ fun PlayerMenu(
                     items = listOf(
                         when {
                             isExporting -> Material3MenuItemData(
-                                title = { Text(text = stringResource(R.string.exporting)) },
+                                title = { Text(text = stringResource(R.string.exporting_percent, exportProgress)) },
                                 icon = {
                                     CircularProgressIndicator(
+                                        progress = { (exportProgress.coerceIn(0, 100) / 100f) },
                                         modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
+                                        strokeWidth = 2.dp,
+                                        trackColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant,
                                     )
+                                },
+                                trailingContent = {
+                                    Text(text = "${exportProgress.coerceIn(0, 100)}%")
                                 },
                                 onClick = {}
                             )

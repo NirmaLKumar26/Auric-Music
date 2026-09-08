@@ -33,8 +33,8 @@ android {
         applicationId = "nirmal.auric.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 612
-        versionName = "6.1.2"
+        versionCode = 613
+        versionName = "6.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -137,7 +137,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            isCrunchPngs = false
+            isCrunchPngs = true
             isDebuggable = false
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
@@ -202,6 +202,10 @@ android {
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/io.netty.versions.properties"
             excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/*.kotlin_module"
+            excludes += "META-INF/versions/**"
+            excludes += "DebugProbesKt.bin"
+            excludes += "kotlin-tooling-metadata.json"
         }
     }
 }
@@ -268,7 +272,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.util)
-    implementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.animation)
     implementation(libs.compose.reorderable)
 
@@ -352,5 +356,6 @@ dependencies {
     implementation(libs.work.runtime.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.ffmpeg.kit.audio)
+    implementation(libs.smart.exception.java)
 
 }

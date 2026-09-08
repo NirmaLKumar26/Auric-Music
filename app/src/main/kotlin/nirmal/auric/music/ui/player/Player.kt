@@ -163,6 +163,7 @@ import nirmal.auric.music.constants.CropAlbumArtKey
 import nirmal.auric.music.constants.DarkModeKey
 import nirmal.auric.music.constants.HidePlayerThumbnailKey
 import nirmal.auric.music.constants.HideStatusBarOnFullscreenKey
+import nirmal.auric.music.constants.ShowLyricsOnPlayerKey
 import nirmal.auric.music.constants.EnableLyricsThumbnailPlayPauseKey
 import nirmal.auric.music.constants.KeepScreenOn
 import nirmal.auric.music.constants.PlayerBackgroundStyle
@@ -310,6 +311,7 @@ fun BottomSheetPlayer(
     val hidePlayerSlider by rememberPreference(nirmal.auric.music.constants.HidePlayerSliderKey, false)
     val (hidePlayerThumbnail, onHidePlayerThumbnailChange) = rememberPreference(HidePlayerThumbnailKey, false)
     val cropAlbumArt by rememberPreference(CropAlbumArtKey, false)
+    val showLyricsOnPlayer by rememberPreference(ShowLyricsOnPlayerKey, true)
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val isLocalMedia = mediaMetadata?.id?.isLocalMediaId() == true
 
@@ -1410,6 +1412,7 @@ fun BottomSheetPlayer(
             playerConnection.service.clearAutomix()
             playerConnection.player.stop()
             playerConnection.player.clearMediaItems()
+            playerConnection.service.clearPersistedQueueFiles()
         },
         collapsedContent = {
             MiniPlayer(
@@ -2801,6 +2804,16 @@ fun BottomSheetPlayer(
                     ) {
                         Spacer(Modifier.weight(1f))
 
+                        if (showLyricsOnPlayer && !showInlineLyrics) {
+                            PlayerSyncedLyricsView(
+                                mediaMetadata = mediaMetadata,
+                                positionProvider = { effectivePosition },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                            )
+                        }
+
                         mediaMetadata?.let {
                             controlsContent(it)
                         }
@@ -2851,6 +2864,16 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+                    }
+
+                    if (showLyricsOnPlayer && !showInlineLyrics) {
+                        PlayerSyncedLyricsView(
+                            mediaMetadata = mediaMetadata,
+                            positionProvider = { effectivePosition },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                        )
                     }
 
                     mediaMetadata?.let {

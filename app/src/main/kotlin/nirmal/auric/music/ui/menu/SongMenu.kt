@@ -74,6 +74,8 @@ import nirmal.auric.music.constants.EnableExportAsMp3Key
 import nirmal.auric.music.constants.ExportDirectoryUriKey
 import nirmal.auric.music.constants.ExportedSongIdsKey
 import nirmal.auric.music.constants.ExportingSongIdsKey
+import nirmal.auric.music.constants.ExportProgressKey
+import nirmal.auric.music.constants.exportProgressPercent
 import nirmal.auric.music.constants.ListItemHeight
 import nirmal.auric.music.constants.ListThumbnailSize
 import nirmal.auric.music.db.entities.ArtistEntity
@@ -127,9 +129,13 @@ fun SongMenu(
     val (exportDirectoryUri) = rememberPreference(key = ExportDirectoryUriKey, defaultValue = "")
     val (exportingSongIds) = rememberPreference(key = ExportingSongIdsKey, defaultValue = "")
     val (exportedSongIds) = rememberPreference(key = ExportedSongIdsKey, defaultValue = "")
+    val (exportProgressRaw) = rememberPreference(key = ExportProgressKey, defaultValue = "")
 
     val isExporting = remember(exportingSongIds, song.id) { exportingSongIds.split(",").contains(song.id) }
     val isExported = remember(exportedSongIds, song.id) { exportedSongIds.split(",").contains(song.id) }
+    val exportProgress = remember(exportProgressRaw, song.id) {
+        exportProgressPercent(exportProgressRaw, song.id)
+    }
 
     var refetchIconDegree by remember { mutableFloatStateOf(0f) }
 
@@ -724,12 +730,18 @@ fun SongMenu(
                     items = listOf(
                         when {
                             isExporting -> Material3MenuItemData(
-                                title = { Text(text = stringResource(R.string.exporting)) },
+                                title = {
+                                    Text(text = stringResource(R.string.exporting_percent, exportProgress))
+                                },
                                 icon = {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
+                                        strokeWidth = 2.dp,
+                                        progress = { exportProgress.coerceIn(0, 100) / 100f },
                                     )
+                                },
+                                trailingContent = {
+                                    Text(text = "${exportProgress.coerceIn(0, 100)}%")
                                 },
                                 onClick = {}
                             )

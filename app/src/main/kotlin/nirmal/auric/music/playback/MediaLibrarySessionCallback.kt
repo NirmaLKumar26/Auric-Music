@@ -4,6 +4,7 @@ package nirmal.auric.music.playback
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.annotation.DrawableRes
@@ -70,12 +71,37 @@ constructor(
     var toggleStartRadio: () -> Unit = {}
     var toggleLibrary: () -> Unit = {}
 
+    private val trustedAutomotivePackages = setOf(
+        "com.google.android.projection.gearhead",
+        "com.google.android.gms.car",
+        "com.android.systemui",
+    )
+
+    private fun isVerifiedAutomotiveController(controller: MediaSession.ControllerInfo): Boolean {
+        val claimedPackage = controller.packageName
+        if (claimedPackage !in trustedAutomotivePackages) return false
+        val actualUid = try {
+            context.packageManager.getPackageUid(claimedPackage, 0)
+        } catch (_: PackageManager.NameNotFoundException) {
+            return false
+        }
+        return actualUid == controller.uid
+    }
+
+    private fun isAuthorizedController(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+    ): Boolean =
+        controller.isTrusted ||
+            session.isMediaNotificationController(controller) ||
+            isVerifiedAutomotiveController(controller)
+
     override fun onConnect(
         session: MediaSession,
         controller: MediaSession.ControllerInfo,
     ): MediaSession.ConnectionResult {
         val connectionResult = super.onConnect(session, controller)
-        return MediaSession.ConnectionResult.accept(
+        val availableSessionCommands = if (isAuthorizedController(session, controller)) {
             connectionResult.availableSessionCommands
                 .buildUpon()
                 .add(MediaSessionConstants.CommandToggleLike)
@@ -83,7 +109,12 @@ constructor(
                 .add(MediaSessionConstants.CommandToggleLibrary)
                 .add(MediaSessionConstants.CommandToggleShuffle)
                 .add(MediaSessionConstants.CommandToggleRepeatMode)
-                .build(),
+                .build()
+        } else {
+            connectionResult.availableSessionCommands
+        }
+        return MediaSession.ConnectionResult.accept(
+            availableSessionCommands,
             connectionResult.availablePlayerCommands,
         )
     }
@@ -94,6 +125,14 @@ constructor(
         customCommand: SessionCommand,
         args: Bundle,
     ): ListenableFuture<SessionResult> {
+        val isToggleCommand = customCommand.customAction == MediaSessionConstants.ACTION_TOGGLE_LIKE ||
+            customCommand.customAction == MediaSessionConstants.ACTION_TOGGLE_START_RADIO ||
+            customCommand.customAction == MediaSessionConstants.ACTION_TOGGLE_LIBRARY ||
+            customCommand.customAction == MediaSessionConstants.ACTION_TOGGLE_SHUFFLE ||
+            customCommand.customAction == MediaSessionConstants.ACTION_TOGGLE_REPEAT_MODE
+        if (isToggleCommand && !isAuthorizedController(session, controller)) {
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED))
+        }
         when (customCommand.customAction) {
             MediaSessionConstants.ACTION_TOGGLE_LIKE -> toggleLike()
             MediaSessionConstants.ACTION_TOGGLE_START_RADIO -> toggleStartRadio()

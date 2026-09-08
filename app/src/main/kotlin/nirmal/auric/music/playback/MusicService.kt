@@ -129,6 +129,8 @@ import nirmal.auric.music.constants.PreventDuplicateTracksInQueueKey
 import nirmal.auric.music.constants.SimilarContent
 import nirmal.auric.music.constants.SkipSilenceInstantKey
 import nirmal.auric.music.constants.SkipSilenceKey
+import nirmal.auric.music.constants.SpatialAudioEnabledKey
+import nirmal.auric.music.constants.SpatialAudioStrengthKey
 import nirmal.auric.music.constants.IpVersionKey
 import com.music.innertube.models.IpVersion
 import okhttp3.Dns
@@ -146,6 +148,7 @@ import nirmal.auric.music.di.PlayerCache
 import nirmal.auric.music.eq.EqualizerService
 import nirmal.auric.music.eq.audio.AutomixDuckAudioProcessor
 import nirmal.auric.music.eq.audio.CustomEqualizerAudioProcessor
+import nirmal.auric.music.eq.audio.StereoWidenerAudioProcessor
 import nirmal.auric.music.eq.data.EQProfileRepository
 import nirmal.auric.music.extensions.SilentHandler
 import nirmal.auric.music.extensions.collect
@@ -449,6 +452,7 @@ class MusicService :
 
     private val playerSilenceProcessors = HashMap<Player, SilenceDetectorAudioProcessor>()
     private val playerDuckProcessors = HashMap<Player, AutomixDuckAudioProcessor>()
+    private val playerStereoWideners = HashMap<Player, StereoWidenerAudioProcessor>()
 
 
     private val instantSilenceSkipEnabled = MutableStateFlow(false)
@@ -876,6 +880,15 @@ class MusicService :
         }
 
         combine(
+            dataStore.data.map { (try { it[SpatialAudioEnabledKey] } catch (_: Exception) { null }) ?: false },
+            dataStore.data.map { (try { it[SpatialAudioStrengthKey] } catch (_: Exception) { null }) ?: 0.4f },
+        ) { enabled, strength ->
+            if (enabled) 1f + strength.coerceIn(0f, 1f) else 1f
+        }.collectLatest(scope) { width ->
+            playerStereoWideners.values.forEach { it.width = width }
+        }
+
+        combine(
             currentMediaMetadata.distinctUntilChangedBy { it?.id },
             dataStore.data.map { 
                 val showLyrics = (try { it[ShowLyricsKey] } catch(e: Exception) { null }) ?: false
@@ -1133,8 +1146,13 @@ class MusicService :
         equalizerService.addAudioProcessor(eqProcessor)
 
         val duckProcessor = AutomixDuckAudioProcessor()
-
         val silenceProcessor = SilenceDetectorAudioProcessor { handleLongSilenceDetected() }
+        val stereoWidener = StereoWidenerAudioProcessor()
+        runBlocking {
+            val enabled = dataStore.get(SpatialAudioEnabledKey, false)
+            val strength = dataStore.get(SpatialAudioStrengthKey, 0.4f).coerceIn(0f, 1f)
+            stereoWidener.width = if (enabled) 1f + strength else 1f
+        }
 
         
         runBlocking {
@@ -1145,7 +1163,7 @@ class MusicService :
 
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(createMediaSourceFactory())
-            .setRenderersFactory(createRenderersFactory(eqProcessor, silenceProcessor, duckProcessor))
+            .setRenderersFactory(createRenderersFactory(eqProcessor, silenceProcessor, duckProcessor, stereoWidener))
             .setLoadControl(
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(50_000, 50_000, 750, 2_000)
@@ -1167,6 +1185,7 @@ class MusicService :
 
         playerSilenceProcessors[player] = silenceProcessor
         playerDuckProcessors[player] = duckProcessor
+        playerStereoWideners[player] = stereoWidener
 
         player.apply {
                 runBlocking {
@@ -1314,10 +1333,19 @@ class MusicService :
         }
     }
 
-    private fun clearPersistedQueueFiles() {
-        runCatching { filesDir.resolve(PERSISTENT_QUEUE_FILE).delete() }
+    fun clearPersistedQueueFiles(): Boolean {
+        val queueDeleted = runCatching {
+            val file = filesDir.resolve(PERSISTENT_QUEUE_FILE)
+            !file.exists() || file.delete()
+        }.getOrDefault(false)
         runCatching { filesDir.resolve(PERSISTENT_AUTOMIX_FILE).delete() }
         runCatching { filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE).delete() }
+        if (!queueDeleted) {
+            runCatching {
+                filesDir.resolve(PERSISTENT_QUEUE_FILE).outputStream().use { it.write(ByteArray(0)) }
+            }
+        }
+        return queueDeleted
     }
 
     fun hasAudioFocusForPlayback(): Boolean {
@@ -3215,6 +3243,7 @@ class MusicService :
         eqProcessor: CustomEqualizerAudioProcessor,
         silenceProcessor: SilenceDetectorAudioProcessor,
         duckProcessor: AutomixDuckAudioProcessor,
+        stereoWidener: StereoWidenerAudioProcessor,
     ) =
         object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -3232,6 +3261,7 @@ class MusicService :
                             eqProcessor,
                             duckProcessor,
                             silenceProcessor,
+                            stereoWidener,
                         ),
                         SilenceSkippingAudioProcessor(2_000_000, 20_000, 256),
                         SonicAudioProcessor(),
@@ -3281,7 +3311,7 @@ class MusicService :
 
     private fun saveQueueToDisk() {
         if (player.mediaItemCount == 0) {
-            Timber.tag(TAG).d("Skipping queue save - no media items")
+            clearPersistedQueueFiles()
             return
         }
 
@@ -3384,6 +3414,8 @@ class MusicService :
         player.removeListener(this)
         player.removeListener(sleepTimer)
         playerSilenceProcessors.remove(player)
+        playerDuckProcessors.remove(player)
+        playerStereoWideners.remove(player)
         
         
         
@@ -3912,7 +3944,11 @@ class MusicService :
     }
 
     private fun isNextItemGapless(): Boolean {
-        val current = player.currentMediaItem?.mediaMetadata ?: return false
+        val currentMediaItem = player.currentMediaItem ?: return false
+        if (currentMediaItem.mediaId.isLocalMediaId()) {
+            return false
+        }
+        val current = currentMediaItem.mediaMetadata
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return false
         val next = player.getMediaItemAt(nextIndex).mediaMetadata
@@ -3924,6 +3960,7 @@ class MusicService :
         prebuffered = null
         playerDuckProcessors.remove(pb.player)
         playerSilenceProcessors.remove(pb.player)
+        playerStereoWideners.remove(pb.player)
         try {
             pb.player.removeListener(secondaryPlayerListener)
             pb.player.stop()
@@ -4211,7 +4248,11 @@ class MusicService :
         } finally {
             fadingLoudnessEnhancer = null
         }
-        fadingPlayer?.let { playerDuckProcessors.remove(it) }
+        fadingPlayer?.let {
+            playerDuckProcessors.remove(it)
+            playerSilenceProcessors.remove(it)
+            playerStereoWideners.remove(it)
+        }
         fadingPlayer?.stop()
         fadingPlayer?.clearMediaItems()
         fadingPlayer?.release()

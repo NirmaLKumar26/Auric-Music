@@ -51,6 +51,7 @@
     <string name="update_notifications_subtitle">Show a notification when a new update is found</string>
     <string name="settings_check_updates_title">Check for updates</string>
     <string name="later">Later</string>
+    <string name="download_from_github">Download from GitHub</string>
 
 
     <string name="auric_music_title">Auric Music</string>

@@ -182,6 +182,77 @@ class SpotifyImportRepository @Inject constructor(
             SpotifyImportSource.Playlist(resolved)
         }
 
+    suspend fun importTrackByUrl(
+        url: String,
+        onProgress: (SpotifyImportProgressUi) -> Unit,
+    ): SpotifyImportSummaryUi =
+        withContext(Dispatchers.IO) {
+            val trackId = parseTrackId(url)
+                ?: throw IllegalArgumentException(context.getString(R.string.spotify_invalid_song_link))
+            ensureAuthenticated()
+
+            val track = spotifyCallWithTokenRetry {
+                Spotify.track(trackId).getOrThrow()
+            }
+            if (track.name.isBlank()) {
+                throw IllegalArgumentException(context.getString(R.string.spotify_invalid_song_link))
+            }
+
+            val title = track.name
+            onProgress(
+                SpotifyImportProgressUi(
+                    sourceTitle = title,
+                    completedSources = 0,
+                    totalSources = 1,
+                    matchedTracks = 0,
+                    totalTracks = 1,
+                    percent = 10,
+                ),
+            )
+
+            val matched = matchTracks(
+                sourceIndex = 0,
+                sourceCount = 1,
+                sourceTitle = title,
+                tracks = listOf(track),
+                onProgress = onProgress,
+            )
+            if (matched.isEmpty()) {
+                throw IllegalStateException(context.getString(R.string.spotify_song_match_failed, title))
+            }
+
+            val now = LocalDateTime.now()
+            database.withTransaction {
+                matched.forEach { item ->
+                    insert(item.metadata) { song ->
+                        song.copy(inLibrary = song.inLibrary ?: now)
+                    }
+                }
+            }
+
+            onProgress(
+                SpotifyImportProgressUi(
+                    sourceTitle = title,
+                    completedSources = 1,
+                    totalSources = 1,
+                    matchedTracks = matched.size,
+                    totalTracks = 1,
+                    percent = 100,
+                ),
+            )
+
+            SpotifyImportSummaryUi(
+                listOf(
+                    SpotifyImportSourceSummaryUi(
+                        title = title,
+                        totalTracks = 1,
+                        importedTracks = matched.size,
+                        failedTracks = 1 - matched.size,
+                    ),
+                ),
+            )
+        }
+
     suspend fun importSources(
         sources: List<SpotifyImportSource>,
         onProgress: (SpotifyImportProgressUi) -> Unit,
@@ -405,7 +476,14 @@ class SpotifyImportRepository @Inject constructor(
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return null
         PLAYLIST_REFERENCE_REGEX.find(trimmed)?.let { return it.groupValues[1] }
-        if (trimmed.matches(BARE_ID_REGEX)) return trimmed
+        if (trimmed.matches(BARE_ID_REGEX) && TRACK_REFERENCE_REGEX.find(trimmed) == null) return trimmed
+        return null
+    }
+
+    private fun parseTrackId(input: String): String? {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return null
+        TRACK_REFERENCE_REGEX.find(trimmed)?.let { return it.groupValues[1] }
         return null
     }
 
@@ -580,6 +658,7 @@ class SpotifyImportRepository @Inject constructor(
         private const val MAX_CONCURRENT_SPOTIFY_COUNT_REQUESTS = 4
         private const val TOKEN_EXPIRY_GRACE_MS = 60_000L
         private val PLAYLIST_REFERENCE_REGEX = Regex("""playlist[/:]([A-Za-z0-9]+)""")
+        private val TRACK_REFERENCE_REGEX = Regex("""track[/:]([A-Za-z0-9]+)""")
         private val BARE_ID_REGEX = Regex("""[A-Za-z0-9]{16,}""")
     }
 }

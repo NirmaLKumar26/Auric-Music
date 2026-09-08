@@ -191,22 +191,6 @@ fun ColorPickerDialog(
         },
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            SaturationValuePanel(
-                hue = hue,
-                saturation = saturation,
-                value = value,
-                onChange = { s, v ->
-                    saturation = s
-                    value = v
-                    hexInput = ColorPickerConversions.colorToHex(
-                        ColorPickerConversions.hsvToColor(hue, s, v)
-                    )
-                    hexError = false
-                },
-            )
-
-            Spacer(Modifier.height(16.dp))
-
             HueSlider(
                 hue = hue,
                 onChange = { h ->

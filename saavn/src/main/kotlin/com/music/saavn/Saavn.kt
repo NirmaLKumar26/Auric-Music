@@ -220,11 +220,18 @@ object Saavn {
         mediaId: String,
         quality: String = SaavnQualityDefault,
     ): Result<String> = runCatching {
-        val pid = SaavnIds.songPid(mediaId) ?: mediaId.removePrefix(SaavnIds.PREFIX)
+        val pid = SaavnIds.songPid(mediaId) ?: mediaId.removePrefix(SaavnIds.PREFIX).substringAfterLast(':')
+        val details = song(pid).getOrNull()
         val encrypted = encryptedUrlCache[pid]
-            ?: song(pid).getOrNull()?.encryptedMediaUrl
+            ?: details?.id?.let { encryptedUrlCache[it] }
+            ?: details?.encryptedMediaUrl
             ?: error("No JioSaavn stream for $mediaId")
-        qualityUrl(decryptUrl(encrypted), quality)
+        val raw = encrypted.trim()
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            qualityUrl(raw, quality)
+        } else {
+            qualityUrl(decryptUrl(raw), quality)
+        }
     }
 
     suspend fun matchSong(title: String, artist: String? = null): Result<SaavnSong> = runCatching {
@@ -304,6 +311,10 @@ object Saavn {
     private fun songArray(element: JsonElement?): List<JsonObject> {
         if (element == null) return emptyList()
         val obj = asObject(element)
+        val fromPidMap = obj?.songObjectsFromPidMap().orEmpty()
+        if (fromPidMap.isNotEmpty()) return fromPidMap
+        val nestedData = obj?.get("data")?.let { asObject(it)?.songObjectsFromPidMap() }.orEmpty()
+        if (nestedData.isNotEmpty()) return nestedData
         val array = when {
             element is JsonArray -> element
             obj?.get("results") is JsonArray -> obj["results"]!!.jsonArray
@@ -312,20 +323,35 @@ object Saavn {
             obj?.get("list") is JsonArray -> obj["list"]!!.jsonArray
             obj?.get("topSongs") is JsonObject && obj["topSongs"]!!.jsonObject["songs"] is JsonArray ->
                 obj["topSongs"]!!.jsonObject["songs"]!!.jsonArray
-            obj != null && obj.containsKey("id") && (obj.containsKey("title") || obj.containsKey("song")) ->
+            obj != null && (obj.containsKey("id") || obj.containsKey("perma_url")) &&
+                (obj.containsKey("title") || obj.containsKey("song") || obj.containsKey("encrypted_media_url")) ->
                 return listOf(obj)
             else -> JsonArray(emptyList())
         }
         return array.mapNotNull { asObject(it) }
     }
 
+    /** song.getDetails returns `{ "PID": { ...song } }` instead of a songs array. */
+    private fun JsonObject.songObjectsFromPidMap(): List<JsonObject> =
+        values.mapNotNull { asObject(it) }.filter { candidate ->
+            candidate.containsKey("encrypted_media_url") ||
+                candidate.containsKey("encrypted_drm_media_url") ||
+                candidate.containsKey("media_preview_url") ||
+                ((candidate.containsKey("id") || candidate.containsKey("perma_url")) &&
+                    (candidate.containsKey("title") || candidate.containsKey("song")))
+        }
+
     private fun parseSong(obj: JsonObject): SaavnSong? {
         val more = asObject(obj["more_info"]) ?: JsonObject(emptyMap())
         val id = obj.str("id") ?: more.str("encrypted_media_url")?.hashCode()?.toString() ?: return null
         val title = decode(obj.str("title") ?: obj.str("song") ?: return null).ifBlank { return null }
         val image = upgradeImage(obj.str("image") ?: more.str("image") ?: "")
-        val encrypted = more.str("encrypted_media_url") ?: obj.str("encrypted_media_url")
+        val encrypted = more.str("encrypted_media_url")
+            ?: obj.str("encrypted_media_url")
+            ?: more.str("encrypted_drm_media_url")
+            ?: obj.str("encrypted_drm_media_url")
         if (!encrypted.isNullOrBlank()) encryptedUrlCache[id] = encrypted
+        val previewUrl = more.str("media_preview_url") ?: obj.str("media_preview_url")
         val duration = (more.str("duration") ?: obj.str("duration"))?.toIntOrNull() ?: -1
         val album = decode(more.str("album") ?: obj.str("album")).ifBlank { null }
         val albumId = more.str("album_id") ?: obj.str("albumid")
@@ -346,7 +372,7 @@ object Saavn {
             duration = duration,
             imageUrl = image,
             permaUrl = obj.str("perma_url") ?: more.str("perma_url"),
-            encryptedMediaUrl = encrypted,
+            encryptedMediaUrl = encrypted ?: previewUrl,
             explicit = (obj.str("explicit_content") ?: more.str("explicit_content")) == "1",
         )
     }
@@ -448,6 +474,7 @@ object Saavn {
         val upgraded = url
             .replace("_12.", target)
             .replace("_48.", target)
+            .replace("_96_p.", target)
             .replace("_96.", target)
             .replace("_160.", target)
             .replace("_320.", target)

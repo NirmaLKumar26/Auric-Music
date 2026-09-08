@@ -227,6 +227,7 @@ object YTPlayerUtils {
         playlistId: String? = null,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+        preferHighestBitrate: Boolean = false,
     ): Result<PlaybackData> = runCatching {
         val fx = Fix403.nextId("res")
         Timber.tag(TAG).d("=== PLAYER RESPONSE FOR PLAYBACK ===")
@@ -488,6 +489,7 @@ object YTPlayerUtils {
                         responseToUse,
                         audioQuality,
                         connectivityManager,
+                        preferHighestBitrate,
                     )
 
                 if (format == null) {
@@ -780,14 +782,21 @@ object YTPlayerUtils {
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+        preferHighestBitrate: Boolean = false,
     ): PlayerResponse.StreamingData.Format? {
         Timber.tag(logTag).d("Finding format with audioQuality: $audioQuality, network metered: ${connectivityManager.isActiveNetworkMetered}")
 
-        val format = playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio && it.isOriginal }
-            ?.maxByOrNull {
-                it.bitrate * 1 + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0)
+        val audioFormats = playerResponse.streamingData?.adaptiveFormats
+            ?.filter { it.isAudio }
+            .orEmpty()
+        val originalAudio = audioFormats.filter { it.isOriginal }.ifEmpty { audioFormats }
+        val format = if (preferHighestBitrate) {
+            originalAudio.maxByOrNull { it.bitrate }
+        } else {
+            originalAudio.maxByOrNull {
+                it.bitrate + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0)
             }
+        }
 
         if (format != null) {
             Timber.tag(logTag).d("Selected format: ${format.mimeType}, bitrate: ${format.bitrate}")

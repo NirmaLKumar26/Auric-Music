@@ -67,6 +67,8 @@ import nirmal.auric.music.constants.SimilarContent
 
 import nirmal.auric.music.constants.SkipSilenceInstantKey
 import nirmal.auric.music.constants.SkipSilenceKey
+import nirmal.auric.music.constants.SpatialAudioEnabledKey
+import nirmal.auric.music.constants.ShowLyricsOnPlayerKey
 import nirmal.auric.music.constants.StopMusicOnTaskClearKey
 import nirmal.auric.music.constants.EnableExportAsMp3Key
 
@@ -135,6 +137,14 @@ highlightKey: String? = null) {
     )
     val (audioNormalization, onAudioNormalizationChange) = rememberPreference(
         AudioNormalizationKey,
+        defaultValue = true
+    )
+    val (spatialAudio, onSpatialAudioChange) = rememberPreference(
+        SpatialAudioEnabledKey,
+        defaultValue = false
+    )
+    val (showLyricsOnPlayer, onShowLyricsOnPlayerChange) = rememberPreference(
+        ShowLyricsOnPlayerKey,
         defaultValue = true
     )
 
@@ -769,6 +779,50 @@ highlightKey: String? = null) {
                         )
                     },
                     onClick = { onAudioNormalizationChange(!audioNormalization) }
+                ))
+                add(Material3SettingsItem(
+    isHighlighted = (highlightKey == stringResource(R.string.spatial_audio)),
+                    icon = painterResource(R.drawable.graphic_eq),
+                    title = { Text(stringResource(R.string.spatial_audio)) },
+                    description = { Text(stringResource(R.string.spatial_audio_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = spatialAudio,
+                            onCheckedChange = onSpatialAudioChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (spatialAudio) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onSpatialAudioChange(!spatialAudio) }
+                ))
+                add(Material3SettingsItem(
+    isHighlighted = (highlightKey == stringResource(R.string.show_lyrics_on_player)),
+                    icon = painterResource(R.drawable.lyrics),
+                    title = { Text(stringResource(R.string.show_lyrics_on_player)) },
+                    description = { Text(stringResource(R.string.show_lyrics_on_player_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = showLyricsOnPlayer,
+                            onCheckedChange = onShowLyricsOnPlayerChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (showLyricsOnPlayer) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onShowLyricsOnPlayerChange(!showLyricsOnPlayer) }
                 ))
                 add(Material3SettingsItem(
     isHighlighted = (highlightKey == stringResource(R.string.audio_offload)),

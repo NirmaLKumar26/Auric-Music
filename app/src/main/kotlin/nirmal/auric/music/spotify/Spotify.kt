@@ -1623,6 +1623,11 @@ object Spotify {
             authenticatedGet("artists/$artistId/related-artists")
         }
 
+    suspend fun track(trackId: String): Result<SpotifyTrack> =
+        runCatching {
+            authenticatedGet<SpotifyTrack>("tracks/$trackId")
+        }
+
     fun isAuthenticated(): Boolean = accessToken != null
 }
 

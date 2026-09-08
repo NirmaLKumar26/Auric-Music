@@ -165,6 +165,40 @@ val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 val ExportDirectoryUriKey = stringPreferencesKey("exportDirectoryUri")
 val ExportingSongIdsKey = stringPreferencesKey("exportingSongIds")
 val ExportedSongIdsKey = stringPreferencesKey("exportedSongIds")
+val ExportProgressKey = stringPreferencesKey("exportProgress")
+
+/** `songId|percent` so IDs that contain `:` (JioSaavn) still parse. */
+fun parseExportProgressMap(raw: String): Map<String, Int> {
+    if (raw.isBlank()) return emptyMap()
+    return raw.split(',')
+        .mapNotNull { entry ->
+            val trimmed = entry.trim()
+            if (trimmed.isEmpty()) return@mapNotNull null
+            val pipe = trimmed.lastIndexOf('|')
+            if (pipe > 0) {
+                val id = trimmed.substring(0, pipe)
+                val percent = trimmed.substring(pipe + 1).toIntOrNull() ?: return@mapNotNull null
+                return@mapNotNull id to percent.coerceIn(0, 100)
+            }
+            val colon = trimmed.lastIndexOf(':')
+            if (colon > 0) {
+                val percent = trimmed.substring(colon + 1).toIntOrNull() ?: return@mapNotNull null
+                trimmed.substring(0, colon) to percent.coerceIn(0, 100)
+            } else {
+                null
+            }
+        }
+        .toMap()
+}
+
+fun encodeExportProgressMap(entries: Map<String, Int>): String =
+    entries.entries.joinToString(",") { "${it.key}|${it.value.coerceIn(0, 100)}" }
+
+fun exportProgressPercent(raw: String, songId: String): Int =
+    parseExportProgressMap(raw)[songId] ?: 0
+
+val SavedAccountsKey = stringPreferencesKey("savedAccounts")
+val ShowLyricsOnPlayerKey = booleanPreferencesKey("showLyricsOnPlayer")
 val EnableExportAsMp3Key = booleanPreferencesKey("enableExportAsMp3")
 
 val PauseListenHistoryKey = booleanPreferencesKey("pauseListenHistory")

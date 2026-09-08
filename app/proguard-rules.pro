@@ -184,3 +184,8 @@
 -keepclasseswithmembers class nirmal.auric.music.listentogether.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# FFmpegKit (maintained AAR does not bundle smart-exception)
+-keep class com.arthenica.smartexception.** { *; }
+-keep class com.arthenica.ffmpegkit.** { *; }
+

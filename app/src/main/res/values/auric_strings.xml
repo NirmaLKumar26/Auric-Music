@@ -402,6 +402,16 @@
     <string name="export_directory">Export folder</string>
     <string name="export_music">Export music</string>
     <string name="exporting">Exporting</string>
+    <string name="exporting_percent">Exporting • %1$d%%</string>
+    <string name="spatial_audio">Stereo widening</string>
+    <string name="spatial_audio_desc">Widen the stereo image while keeping mono compatibility</string>
+    <string name="show_lyrics_on_player">Show lyrics on player</string>
+    <string name="show_lyrics_on_player_desc">Show the current synced lyric above the song title</string>
+    <string name="hide_lyrics">Hide lyrics</string>
+    <string name="show_lyrics">Show lyrics</string>
+    <string name="switch_accounts">Switch accounts</string>
+    <string name="add_another_account">Add another account</string>
+    <string name="remove_account">Remove account</string>
     <string name="action_exported">Exported</string>
     <string name="export_preparing">Preparing export…</string>
     <string name="export_processing_audio">Downloading audio…</string>

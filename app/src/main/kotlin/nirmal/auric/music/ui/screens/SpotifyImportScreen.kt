@@ -60,6 +60,7 @@ fun SpotifyImportScreen(
     var showSpotifyLogin by remember { mutableStateOf(false) }
     var showSpotifySources by remember { mutableStateOf(false) }
     var showAddByLink by remember { mutableStateOf(false) }
+    var showAddSongByLink by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -104,6 +105,7 @@ fun SpotifyImportScreen(
                         onConnect = { showSpotifyLogin = true },
                         onSelectSources = { showSpotifySources = true },
                         onAddByLink = { showAddByLink = true },
+                        onAddSongByLink = { showAddSongByLink = true },
                     ),
                 )
             }
@@ -115,9 +117,11 @@ fun SpotifyImportScreen(
         viewModel = spotifyImportViewModel,
         showSpotifyLogin = showSpotifyLogin,
         showAddByLink = showAddByLink,
+        showAddSongByLink = showAddSongByLink,
         showSpotifySources = showSpotifySources,
         onDismissLogin = { showSpotifyLogin = false },
         onDismissAddByLink = { showAddByLink = false },
+        onDismissAddSongByLink = { showAddSongByLink = false },
         onDismissSources = { showSpotifySources = false },
     )
 }
@@ -129,6 +133,7 @@ private fun spotifyImportItems(
     onConnect: () -> Unit,
     onSelectSources: () -> Unit,
     onAddByLink: () -> Unit,
+    onAddSongByLink: () -> Unit,
 ): List<Material3SettingsItem> {
     if (!state.isAuthenticated) {
         return listOf(
@@ -145,6 +150,13 @@ private fun spotifyImportItems(
                 icon = painterResource(R.drawable.link),
                 enabled = state.progress == null && !state.isLoading,
                 onClick = onAddByLink,
+            ),
+            Material3SettingsItem(
+                title = { Text(stringResource(R.string.spotify_import_song_by_link)) },
+                description = { Text(stringResource(R.string.spotify_import_song_by_link_desc)) },
+                icon = painterResource(R.drawable.music_note),
+                enabled = state.progress == null && !state.isLoading,
+                onClick = onAddSongByLink,
             ),
         )
     }
@@ -185,6 +197,13 @@ private fun spotifyImportItems(
             onClick = onAddByLink,
         ),
         Material3SettingsItem(
+            title = { Text(stringResource(R.string.spotify_import_song_by_link)) },
+            description = { Text(stringResource(R.string.spotify_import_song_by_link_desc)) },
+            icon = painterResource(R.drawable.music_note),
+            enabled = idle,
+            onClick = onAddSongByLink,
+        ),
+        Material3SettingsItem(
             title = { Text(stringResource(R.string.spotify_import_selected)) },
             description = { Text(stringResource(R.string.spotify_selected_count, state.selectedSourceIds.size)) },
             icon = painterResource(R.drawable.playlist_add),
@@ -214,9 +233,11 @@ private fun SpotifyImportDialogs(
     viewModel: SpotifyImportViewModel,
     showSpotifyLogin: Boolean,
     showAddByLink: Boolean,
+    showAddSongByLink: Boolean,
     showSpotifySources: Boolean,
     onDismissLogin: () -> Unit,
     onDismissAddByLink: () -> Unit,
+    onDismissAddSongByLink: () -> Unit,
     onDismissSources: () -> Unit,
 ) {
     if (showSpotifyLogin) {
@@ -232,10 +253,27 @@ private fun SpotifyImportDialogs(
     if (showAddByLink) {
         SpotifyAddByLinkDialog(
             enabled = !state.isLoading && state.progress == null,
+            titleRes = R.string.spotify_import_by_link,
+            descriptionRes = R.string.spotify_import_by_link_desc,
+            hintRes = R.string.spotify_import_by_link_hint,
             onDismiss = onDismissAddByLink,
             onAdd = { link ->
                 onDismissAddByLink()
                 viewModel.addPlaylistByUrl(link)
+            },
+        )
+    }
+
+    if (showAddSongByLink) {
+        SpotifyAddByLinkDialog(
+            enabled = !state.isLoading && state.progress == null,
+            titleRes = R.string.spotify_import_song_by_link,
+            descriptionRes = R.string.spotify_import_song_by_link_desc,
+            hintRes = R.string.spotify_import_song_by_link_hint,
+            onDismiss = onDismissAddSongByLink,
+            onAdd = { link ->
+                onDismissAddSongByLink()
+                viewModel.importTrackByUrl(link)
             },
         )
     }
@@ -618,6 +656,9 @@ private fun String.toSpotifyCookieOrigin(): String? {
 @Composable
 private fun SpotifyAddByLinkDialog(
     enabled: Boolean,
+    titleRes: Int,
+    descriptionRes: Int,
+    hintRes: Int,
     onDismiss: () -> Unit,
     onAdd: (String) -> Unit,
 ) {
@@ -625,7 +666,7 @@ private fun SpotifyAddByLinkDialog(
 
     DefaultDialog(
         onDismiss = onDismiss,
-        title = { Text(stringResource(R.string.spotify_import_by_link)) },
+        title = { Text(stringResource(titleRes)) },
         buttons = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(android.R.string.cancel))
@@ -640,7 +681,7 @@ private fun SpotifyAddByLinkDialog(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                text = stringResource(R.string.spotify_import_by_link_desc),
+                text = stringResource(descriptionRes),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -650,7 +691,7 @@ private fun SpotifyAddByLinkDialog(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = androidx.compose.foundation.shape.CircleShape,
-                placeholder = { Text(stringResource(R.string.spotify_import_by_link_hint)) },
+                placeholder = { Text(stringResource(hintRes)) },
             )
         }
     }

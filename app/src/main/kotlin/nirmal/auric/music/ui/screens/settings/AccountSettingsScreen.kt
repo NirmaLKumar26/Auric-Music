@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -41,9 +42,13 @@ import nirmal.auric.music.constants.*
 import nirmal.auric.music.ui.component.*
 import nirmal.auric.music.ui.utils.backToMain
 import nirmal.auric.music.utils.rememberPreference
+import nirmal.auric.music.models.AccountData
 import nirmal.auric.music.viewmodels.AccountSettingsViewModel
 import nirmal.auric.music.viewmodels.HomeViewModel
 import nirmal.auric.music.R
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AccountSettingsScreen(
@@ -60,6 +65,7 @@ fun AccountSettingsScreen(
     val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
     val (visitorData, _) = rememberPreference(VisitorDataKey, "")
     val (dataSyncId, _) = rememberPreference(DataSyncIdKey, "")
+    val (savedAccountsJson, onSavedAccountsJsonChange) = rememberPreference(SavedAccountsKey, "[]")
 
     val (listenBrainzEnabled, onListenBrainzEnabledChange) = rememberPreference(ListenBrainzEnabledKey, false)
     val (listenBrainzToken, onListenBrainzTokenChange) = rememberPreference(ListenBrainzTokenKey, "")
@@ -81,6 +87,7 @@ fun AccountSettingsScreen(
     var showListenBrainzTokenEditor by remember { mutableStateOf(false) }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.account)) },
@@ -111,8 +118,122 @@ fun AccountSettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Material3SettingsGroup(scrollState = scrollState, 
-                title = stringResource(R.string.settings),
+        val savedAccounts = try {
+            Json.decodeFromString<List<AccountData>>(savedAccountsJson)
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        LaunchedEffect(isLoggedIn, innerTubeCookie, accountImageUrl, accountName) {
+            val nameToUse = if (accountNamePref.isNotBlank()) accountNamePref else accountName
+            if (isLoggedIn && nameToUse.isNotBlank() && nameToUse != "Guest") {
+                val mutableAccounts = savedAccounts.toMutableList()
+                val index = mutableAccounts.indexOfFirst { it.cookie == innerTubeCookie }
+                if (index == -1) {
+                    mutableAccounts.add(
+                        AccountData(
+                            name = nameToUse,
+                            email = accountEmail,
+                            channelHandle = accountChannelHandle,
+                            cookie = innerTubeCookie,
+                            visitorData = visitorData,
+                            dataSyncId = dataSyncId,
+                            avatarUrl = accountImageUrl ?: "",
+                        )
+                    )
+                    onSavedAccountsJsonChange(Json.encodeToString(mutableAccounts))
+                } else if (mutableAccounts[index].name.isBlank() || mutableAccounts[index].avatarUrl.isBlank()) {
+                    mutableAccounts[index] = mutableAccounts[index].copy(
+                        name = nameToUse,
+                        avatarUrl = accountImageUrl ?: mutableAccounts[index].avatarUrl,
+                    )
+                    onSavedAccountsJsonChange(Json.encodeToString(mutableAccounts))
+                }
+            }
+        }
+
+        if (savedAccounts.isNotEmpty()) {
+            Material3SettingsGroup(
+                scrollState = scrollState,
+                title = stringResource(R.string.switch_accounts),
+                items = savedAccounts.map { account ->
+                    Material3SettingsItem(
+                        icon = if (account.avatarUrl.isNotBlank()) null else painterResource(R.drawable.login),
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (account.avatarUrl.isNotBlank()) {
+                                    AsyncImage(
+                                        model = account.avatarUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                }
+                                Column {
+                                    Text(
+                                        text = account.name,
+                                        color = if (account.cookie == innerTubeCookie) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    if (account.email.isNotBlank()) {
+                                        Text(
+                                            text = account.email,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        trailingContent = {
+                            if (account.cookie != innerTubeCookie) {
+                                androidx.compose.material3.IconButton(onClick = {
+                                    val mutableAccounts = savedAccounts.toMutableList()
+                                    mutableAccounts.remove(account)
+                                    onSavedAccountsJsonChange(Json.encodeToString(mutableAccounts))
+                                }) {
+                                    Icon(painterResource(R.drawable.close), contentDescription = stringResource(R.string.remove_account))
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { showLogoutDialog = true },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.action_logout))
+                                }
+                            }
+                        },
+                        onClick = {
+                            if (account.cookie != innerTubeCookie) {
+                                accountSettingsViewModel.saveTokenAndRestart(
+                                    context = context,
+                                    cookie = account.cookie,
+                                    visitorData = account.visitorData,
+                                    dataSyncId = account.dataSyncId,
+                                    accountName = account.name,
+                                    accountEmail = account.email,
+                                    accountChannelHandle = account.channelHandle
+                                )
+                            }
+                        }
+                    )
+                } + listOf(
+                    Material3SettingsItem(
+                        icon = painterResource(R.drawable.add),
+                        title = { Text(stringResource(R.string.add_another_account)) },
+                        onClick = { navController.navigate("login") }
+                    )
+                )
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        } else {
+            Material3SettingsGroup(scrollState = scrollState,
+                title = stringResource(R.string.account),
                 items = listOf(
                     Material3SettingsItem(
                         icon = if (isLoggedIn && !accountImageUrl.isNullOrBlank()) null else painterResource(R.drawable.login),
@@ -138,13 +259,7 @@ fun AccountSettingsScreen(
                         },
                         trailingContent = if (isLoggedIn) ({
                             OutlinedButton(
-
-
-
-
-                                onClick = {
-                                    showLogoutDialog = true
-                                },
+                                onClick = { showLogoutDialog = true },
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                     contentColor = MaterialTheme.colorScheme.onSurface
@@ -153,17 +268,20 @@ fun AccountSettingsScreen(
                                 Text(stringResource(R.string.action_logout))
                             }
                         }) else null,
-                        onClick = {
-                            if (isLoggedIn) navController.navigate("account")
-                            else navController.navigate("login")
-                        }
+                        onClick = { if (!isLoggedIn) navController.navigate("login") }
                     )
-                )
+                ) + if (isLoggedIn) {
+                    listOf(
+                        Material3SettingsItem(
+                            icon = painterResource(R.drawable.add),
+                            title = { Text(stringResource(R.string.add_another_account)) },
+                            onClick = { navController.navigate("login") }
+                        )
+                    )
+                } else emptyList()
             )
-
-            
-
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         Material3SettingsGroup(scrollState = scrollState, 
                 title = stringResource(R.string.advanced_login),

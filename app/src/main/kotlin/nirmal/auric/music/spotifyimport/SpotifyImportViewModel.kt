@@ -179,6 +179,35 @@ class SpotifyImportViewModel @Inject constructor(
         }
     }
 
+    fun importTrackByUrl(url: String) {
+        val trimmed = url.trim()
+        if (trimmed.isBlank() || importJob?.isActive == true || uiState.value.progress != null) return
+        val job = viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(summary = null, errorMessage = null) }
+            try {
+                val summary = repository.importTrackByUrl(trimmed) { progress ->
+                    _uiState.update { it.copy(progress = progress) }
+                }
+                _uiState.update {
+                    it.copy(progress = null, summary = summary)
+                }
+            } catch (error: CancellationException) {
+                _uiState.update { it.copy(progress = null) }
+                throw error
+            } catch (error: Throwable) {
+                reportException(error)
+                _uiState.update {
+                    it.copy(progress = null, errorMessage = error.message)
+                }
+            } finally {
+                if (importJob === coroutineContext[Job]) {
+                    importJob = null
+                }
+            }
+        }
+        importJob = job
+    }
+
     fun toggleSource(sourceId: String) {
         _uiState.update { state ->
             val selected =
