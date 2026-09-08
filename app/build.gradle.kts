@@ -247,7 +247,7 @@ dependencies {
 
 
     // Firebase - GMS flavor only (excluded from F-Droid / FOSS builds)
-    "gmsImplementation"(platform("com.google.firebase:firebase-bom:33.1.0"))
+    "gmsImplementation"(platform("com.google.firebase:firebase-bom:34.14.0"))
     "gmsImplementation"("com.google.firebase:firebase-analytics")
     "gmsImplementation"("com.google.firebase:firebase-crashlytics")
 
@@ -347,6 +347,16 @@ dependencies {
     // Protobuf for message serialization (lite version for Android)
     implementation(libs.protobuf.javalite)
     implementation(libs.protobuf.kotlin.lite)
+
+    implementation(platform(libs.netty.bom))
+    constraints {
+        implementation("io.netty:netty-codec-http2:4.1.136.Final")
+        implementation("io.netty:netty-codec-http:4.1.136.Final")
+        implementation("io.netty:netty-handler:4.1.136.Final")
+        implementation("io.netty:netty-codec:4.1.136.Final")
+        implementation(libs.bcprov.jdk18on)
+        implementation(libs.bcpkix.jdk18on)
+    }
 
     coreLibraryDesugaring(libs.desugaring)
     implementation(libs.timber)
