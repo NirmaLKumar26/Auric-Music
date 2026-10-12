@@ -108,6 +108,7 @@ constructor(
                                     )
                                 } else {
                                     reportException(it)
+                                    summaryPage = SearchSummaryPage(emptyList())
                                 }
                             }
                     }
@@ -122,6 +123,7 @@ constructor(
                             }
                             .onFailure {
                                 reportException(it)
+                                viewStateMap[filter.value] = ItemsPage(emptyList(), null)
                             }
                     }
                 } else {
@@ -148,6 +150,7 @@ constructor(
                                     )
                             }.onFailure {
                                 reportException(it)
+                                viewStateMap[filter.value] = ItemsPage(emptyList(), null)
                             }
                     }
                 }

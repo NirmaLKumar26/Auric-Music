@@ -198,18 +198,43 @@ class InnerTube {
         }
     }
 
+    /** Cookie is present and includes SAPISID so ytClient can attach a valid auth header. */
+    private fun hasValidLogin(): Boolean =
+        !cookie.isNullOrEmpty() && "SAPISID" in cookieMap
+
+    fun hasValidAccountSession(): Boolean = hasValidLogin()
+
+    /**
+     * Try authenticated browse/search when [wantsLogin] is true; on failure retry anonymously
+     * so stale or partial account cookies do not break public catalog endpoints.
+     */
+    private suspend fun <T> withLoginFallback(
+        wantsLogin: Boolean,
+        block: suspend (effectiveLogin: Boolean) -> T,
+    ): T {
+        val tryLogin = wantsLogin && hasValidLogin()
+        return try {
+            withRetry { block(tryLogin) }
+        } catch (e: Exception) {
+            if (tryLogin) {
+                withRetry { block(false) }
+            } else {
+                throw e
+            }
+        }
+    }
+
     suspend fun search(
         client: YouTubeClient,
         query: String? = null,
         params: String? = null,
         continuation: String? = null,
         setLogin: Boolean? = null,
-    ) = withRetry {
+    ) = withLoginFallback(setLogin ?: useLoginForBrowse) { effectiveLogin ->
         // When [setLogin] is null, fall back to the global browse-login preference.
         // Callers can pass `false` to force an anonymous search (no auth header,
         // no dataSyncId) so the query is NOT recorded in the user's YouTube search
         // history — used for background Spotify→YouTube matching.
-        val effectiveLogin = (setLogin ?: useLoginForBrowse) && !cookie.isNullOrEmpty()
         httpClient.post("search") {
             ytClient(client, setLogin = effectiveLogin)
             setBody(
@@ -234,13 +259,17 @@ class InnerTube {
         playlistId: String?,
         signatureTimestamp: Int?,
         poToken: String? = null,
-    ) = withRetry {
+    ) = withLoginFallback(hasValidLogin()) { effectiveLogin ->
         httpClient.post("player") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = effectiveLogin)
             setBody(
                 PlayerBody(
                     // Must stay consistent with the X-Goog-Visitor-Id header set in ytClient.
-                    context = client.toContext(locale, visitorData, dataSyncId).let {
+                    context = client.toContext(
+                        locale,
+                        visitorData,
+                        if (effectiveLogin) dataSyncId else null,
+                    ).let {
                         if (client.isEmbedded) {
                             it.copy(
                                 thirdParty = Context.ThirdParty(
@@ -291,8 +320,7 @@ class InnerTube {
         params: String? = null,
         continuation: String? = null,
         setLogin: Boolean = false,
-    ) = withRetry {
-        val effectiveLogin = (setLogin || useLoginForBrowse) && !cookie.isNullOrEmpty()
+    ) = withLoginFallback(setLogin || useLoginForBrowse) { effectiveLogin ->
         httpClient.post("browse") {
             ytClient(client, setLogin = effectiveLogin)
             setBody(

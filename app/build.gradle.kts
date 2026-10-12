@@ -33,8 +33,8 @@ android {
         applicationId = "nirmal.auric.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 613
-        versionName = "6.1.3"
+        versionCode = 614
+        versionName = "6.1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -367,5 +367,6 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.ffmpeg.kit.audio)
     implementation(libs.smart.exception.java)
+    testImplementation(libs.junit)
 
 }

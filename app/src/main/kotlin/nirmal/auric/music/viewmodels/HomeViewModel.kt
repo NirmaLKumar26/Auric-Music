@@ -27,6 +27,8 @@ import nirmal.auric.music.constants.HideExplicitKey
 import nirmal.auric.music.constants.HideVideoSongsKey
 import nirmal.auric.music.constants.HideYoutubeShortsKey
 import nirmal.auric.music.constants.InnerTubeCookieKey
+import nirmal.auric.music.constants.AccountChannelHandleKey
+import nirmal.auric.music.constants.AccountEmailKey
 import nirmal.auric.music.constants.QuickPicks
 import nirmal.auric.music.constants.QuickPicksKey
 import nirmal.auric.music.db.MusicDatabase
@@ -39,6 +41,7 @@ import nirmal.auric.music.extensions.toEnum
 import nirmal.auric.music.models.SimilarRecommendation
 import nirmal.auric.music.saavn.toPlaylistItem
 import nirmal.auric.music.utils.SyncUtils
+import nirmal.auric.music.utils.AccountPreferenceResolver
 import nirmal.auric.music.utils.dataStore
 import nirmal.auric.music.utils.get
 import nirmal.auric.music.utils.reportException
@@ -46,6 +49,7 @@ import com.music.saavn.Saavn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +61,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.random.Random
@@ -98,6 +103,23 @@ class HomeViewModel @Inject constructor(
     val saavnTrending = MutableStateFlow<List<PlaylistItem>>(emptyList())
     val selectedChip = MutableStateFlow<HomePage.Chip?>(null)
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
+    private var secondaryHomeLoadJob: Job? = null
+
+    val trendingPlaylists: StateFlow<List<PlaylistItem>> = combine(
+        saavnTrending,
+        communityPlaylists,
+        accountPlaylists,
+        homePage,
+    ) { saavn, community, account, home ->
+        buildList {
+            addAll(saavn)
+            community.orEmpty().forEach { add(it.playlist) }
+            addAll(account.orEmpty())
+            home?.sections.orEmpty().forEach { section ->
+                addAll(section.items.filterIsInstance<PlaylistItem>())
+            }
+        }.distinctBy { it.id }.take(RAIL_LIMIT)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val aiRecommendedPlaylist = database.playlistsByNameAsc()
         .map { playlists -> playlists.find { it.playlist.name == "Recommended by AI" } }
@@ -421,24 +443,33 @@ class HomeViewModel @Inject constructor(
 
         allYtItems.value = homePage.value?.sections?.flatMap { it.items }.orEmpty()
 
-        if (YouTube.cookie != null) {
-            viewModelScope.launch(Dispatchers.IO) { loadAccountPlaylists() }
+        coroutineScope {
+            if (YouTube.cookie != null) {
+                launch { loadAccountPlaylists() }
+            }
+            launch {
+                YouTube.explore().onSuccess { page ->
+                    explorePage.value = page.copy(
+                        newReleaseAlbums = page.newReleaseAlbums.filterExplicit(hideExplicit).take(RAIL_LIMIT),
+                        moodAndGenres = page.moodAndGenres.take(MOOD_LIMIT),
+                    )
+                }.onFailure { reportException(it) }
+            }
         }
-        viewModelScope.launch(Dispatchers.IO) {
-            YouTube.explore().onSuccess { page ->
-                explorePage.value = page.copy(
-                    newReleaseAlbums = page.newReleaseAlbums.filterExplicit(hideExplicit).take(RAIL_LIMIT),
-                    moodAndGenres = page.moodAndGenres.take(MOOD_LIMIT),
-                )
-            }.onFailure { reportException(it) }
-        }
-        viewModelScope.launch(Dispatchers.IO) { getDailyDiscover() }
-        viewModelScope.launch(Dispatchers.IO) { getCommunityPlaylists() }
-        viewModelScope.launch(Dispatchers.IO) { loadSimilarRecommendations() }
-        viewModelScope.launch(Dispatchers.IO) {
-            saavnTrending.value = Saavn.featuredPlaylists(RAIL_LIMIT).getOrNull()
-                ?.map { it.toPlaylistItem() }
-                .orEmpty()
+
+        secondaryHomeLoadJob?.cancel()
+        secondaryHomeLoadJob = viewModelScope.launch(Dispatchers.IO) {
+            yield()
+            coroutineScope {
+                launch { getDailyDiscover() }
+                launch { getCommunityPlaylists() }
+                launch { loadSimilarRecommendations() }
+                launch {
+                    saavnTrending.value = Saavn.featuredPlaylists(RAIL_LIMIT).getOrNull()
+                        ?.map { it.toPlaylistItem() }
+                        .orEmpty()
+                }
+            }
         }
     }
 
@@ -547,7 +578,7 @@ class HomeViewModel @Inject constructor(
         }
         
         viewModelScope.launch(Dispatchers.IO) {
-            syncUtils.tryAutoSync()
+            syncAndInferAccountPreferences()
         }
     }
 
@@ -565,7 +596,7 @@ class HomeViewModel @Inject constructor(
 
         
         viewModelScope.launch(Dispatchers.IO) {
-            syncUtils.tryAutoSync()
+            syncAndInferAccountPreferences()
         }
 
         
@@ -622,5 +653,16 @@ class HomeViewModel @Inject constructor(
         const val SIMILAR_LIMIT = 2
         const val HOME_SECTIONS_LIMIT = 6
         const val MOOD_LIMIT = 10
+    }
+
+    private suspend fun syncAndInferAccountPreferences() {
+        syncUtils.tryAutoSync()
+        val accountId = context.dataStore.get(AccountChannelHandleKey, "")
+            .ifBlank { context.dataStore.get(AccountEmailKey, "") }
+        AccountPreferenceResolver.inferAndPersistIfNeeded(
+            context = context,
+            database = database,
+            accountId = accountId,
+        )
     }
 }

@@ -609,7 +609,9 @@ private fun SharedTransitionScope.ExpandedBar(
         Row(
             horizontalArrangement = Arrangement.spacedBy(sizes.componentSpacing),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.height(IntrinsicSize.Max)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
         ) {
             if (hasTabGroup) {
                 ExpandedTabs(
@@ -621,7 +623,7 @@ private fun SharedTransitionScope.ExpandedBar(
                     elevations = elevations,
                     animatedVisibilityScope = animatedVisibilityScope,
                     tabBarContentModifier = tabBarContentModifier,
-                    modifier = Modifier
+                    modifier = Modifier.weight(1f)
                 )
             }
 
@@ -713,7 +715,7 @@ private fun SharedTransitionScope.ExpandedTabs(
             .clip(shapes.tabBarShape)
             .then(tabBarContentModifier)
             .padding(sizes.tabBarContentPadding)
-            .wrapContentWidth(align = Alignment.Start, unbounded = true)
+            .fillMaxWidth()
             .animateContentSize()
     ) {
         scope.tabs.forEach { tab ->
@@ -748,6 +750,7 @@ private fun SharedTransitionScope.ExpandedTabs(
                 },
                 isInline = false,
                 modifier = Modifier
+                    .weight(1f)
                     .skipToLookaheadSize()
                     .clip(shapes.tabShape)
                     .clickable(

@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.DropdownMenuItem
@@ -114,6 +115,15 @@ import androidx.compose.runtime.mutableStateListOf
 import nirmal.auric.music.utils.PlaybackLogManager
 import nirmal.auric.music.ui.component.PlaybackLogsDialog
 import androidx.compose.runtime.collectAsState
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import nirmal.auric.music.constants.LanguageInferenceAccountKey
+import nirmal.auric.music.constants.PreferredHomeLanguageCodesKey
+import nirmal.auric.music.constants.PreferredHomeLanguagesManuallySetKey
+import nirmal.auric.music.ui.screens.HomeLanguage
+import nirmal.auric.music.utils.dataStore
 import java.net.Proxy
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,6 +136,11 @@ highlightKey: String? = null) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preferredHomeLanguages by remember {
+        context.dataStore.data
+            .map { it[PreferredHomeLanguageCodesKey].orEmpty() }
+            .distinctUntilChanged()
+    }.collectAsState(emptySet())
 
     
     val (appLanguage, onAppLanguageChange) = rememberPreference(key = AppLanguageKey, defaultValue = SYSTEM_DEFAULT)
@@ -301,6 +316,73 @@ highlightKey: String? = null) {
 
     var showContentLanguageDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+    var showPreferredLanguagesDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showPreferredLanguagesDialog) {
+        var selectedLanguages by remember(preferredHomeLanguages) {
+            mutableStateOf(preferredHomeLanguages)
+        }
+        AlertDialog(
+            onDismissRequest = { showPreferredLanguagesDialog = false },
+            title = { Text(stringResource(R.string.preferred_languages)) },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                ) {
+                    HomeLanguage.All.forEach { language ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = language.code in selectedLanguages,
+                                onCheckedChange = { checked ->
+                                    selectedLanguages = if (checked) {
+                                        selectedLanguages + language.code
+                                    } else {
+                                        selectedLanguages - language.code
+                                    }
+                                },
+                            )
+                            Text(language.title)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = selectedLanguages.isNotEmpty(),
+                    onClick = {
+                        scope.launch {
+                            context.dataStore.edit { settings ->
+                                settings[PreferredHomeLanguageCodesKey] = selectedLanguages
+                                settings[PreferredHomeLanguagesManuallySetKey] = true
+                            }
+                        }
+                        showPreferredLanguagesDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            context.dataStore.edit { settings ->
+                                settings.remove(PreferredHomeLanguagesManuallySetKey)
+                                settings.remove(LanguageInferenceAccountKey)
+                                settings.remove(PreferredHomeLanguageCodesKey)
+                            }
+                        }
+                        showPreferredLanguagesDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.detect_from_account))
+                }
+            },
+        )
     }
 
     if (showContentLanguageDialog) {
@@ -626,6 +708,20 @@ highlightKey: String? = null) {
                         )
                     },
                     onClick = { showContentLanguageDialog = true }
+                ),
+                Material3SettingsItem(
+                    isHighlighted = highlightKey == stringResource(R.string.preferred_languages),
+                    icon = painterResource(R.drawable.language),
+                    title = { Text(stringResource(R.string.preferred_languages)) },
+                    description = {
+                        Text(
+                            HomeLanguage.All
+                                .filter { it.code in preferredHomeLanguages }
+                                .joinToString { it.title }
+                                .ifBlank { stringResource(R.string.detected_after_sign_in) },
+                        )
+                    },
+                    onClick = { showPreferredLanguagesDialog = true },
                 ),
                 Material3SettingsItem(
     isHighlighted = (highlightKey == stringResource(R.string.content_country)),

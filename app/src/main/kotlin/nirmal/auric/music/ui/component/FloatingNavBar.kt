@@ -12,6 +12,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -118,6 +119,9 @@ fun AppFloatingNavBar(
             backgroundColor = backgroundColor,
             accessoryBackgroundColor = backgroundColor,
         ),
+        sizes = FloatingTabBarDefaults.sizes(
+            tabExpandedContentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
+        ),
         contentKey = listOf(selectedTabKey, navigationItems, selectedChipColor, unselectedContentColor),
     ) {
         navigationItems.forEach { screen ->
@@ -137,7 +141,7 @@ fun AppFloatingNavBar(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) selectedChipColor else Color.Transparent)
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(

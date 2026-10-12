@@ -241,7 +241,7 @@ object YTPlayerUtils {
         Timber.tag(TAG).d("Content type detection (preliminary):")
         Timber.tag(TAG).d("  isUploadedTrack (from playlistId): $isUploadedTrack")
 
-        val isLoggedIn = YouTube.cookie != null
+        val isLoggedIn = YouTube.hasValidLogin()
         Timber.tag(TAG).d("Authentication status: ${if (isLoggedIn) "LOGGED_IN" else "ANONYMOUS"}")
 
         Fix403.i(
@@ -434,7 +434,7 @@ object YTPlayerUtils {
                 client = STREAM_FALLBACK_CLIENTS[clientIndex]
                 Timber.tag(logTag).d("Trying fallback client ${clientIndex + 1}/${STREAM_FALLBACK_CLIENTS.size}: ${client.clientName}")
 
-                if (client.loginRequired && !isLoggedIn && YouTube.cookie == null) {
+                if (client.loginRequired && !isLoggedIn) {
                     // skip client if it requires login but user is not logged in
                     Timber.tag(logTag).d("Skipping client ${client.clientName} - requires login but user is not logged in")
                     cascade += "${client.clientName}=SKIP(loginRequired)"
@@ -861,8 +861,10 @@ object YTPlayerUtils {
                 .url(url)
                 .addHeader("Range", range)
 
-            YouTube.cookie?.let { cookie ->
-                requestBuilder.addHeader("Cookie", cookie)
+            if (YouTube.hasValidLogin()) {
+                YouTube.cookie?.let { cookie ->
+                    requestBuilder.addHeader("Cookie", cookie)
+                }
             }
 
             val response = httpClient.newCall(requestBuilder.build()).execute()

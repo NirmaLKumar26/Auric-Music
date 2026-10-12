@@ -65,6 +65,7 @@ constructor(
                     )
             }.onFailure {
                 reportException(it)
+                explorePage.value = ExplorePage(newReleaseAlbums = emptyList(), moodAndGenres = emptyList())
             }
     }
 

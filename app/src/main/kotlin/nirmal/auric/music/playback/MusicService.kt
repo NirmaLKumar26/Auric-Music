@@ -3217,11 +3217,11 @@ class MusicService :
                     .map { player.getMediaItemAt(it) }
                     .firstOrNull { it.mediaId == mediaId }
             }
-            val title = dbSong?.song?.title
-                ?: playerItem?.mediaMetadata?.title?.toString()
+            val title = playerItem?.mediaMetadata?.title?.toString()
+                ?: dbSong?.song?.title
                 ?: error("Missing title for JioSaavn match")
-            val artist = dbSong?.artists?.joinToString { it.name }
-                ?: playerItem?.mediaMetadata?.artist?.toString()
+            val artist = playerItem?.mediaMetadata?.artist?.toString()
+                ?: dbSong?.artists?.joinToString { it.name }
             val match = Saavn.matchSong(title, artist).getOrElse { throwable ->
                 if (throwable is IllegalArgumentException) {
                     saavnMatchCache[mediaId] = SAAVN_NO_MATCH

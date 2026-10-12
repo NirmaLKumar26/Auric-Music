@@ -787,7 +787,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val playerMediaMetadata = playerConnection?.player?.currentMediaItem?.mediaMetadata
+                val playerMediaMetadata by playerConnection?.mediaMetadata?.collectAsState()
+                    ?: remember { mutableStateOf(null) }
                 val hasDockedPlayerAccessory =
                     useFloatingNavBar && playerMediaMetadata != null && !showRail && shouldShowNavigationBar
 
@@ -797,10 +798,14 @@ class MainActivity : ComponentActivity() {
                     playerBottomSheetState.isDismissed,
                     showRail,
                     hidePlayerChrome,
+                    useFloatingNavBar,
                 ) {
                     var bottom = bottomInset
                     if (shouldShowNavigationBar && !showRail) {
                         bottom += NavigationBarHeight
+                        if (useFloatingNavBar) {
+                            bottom += FloatingToolbarBottomPadding
+                        }
                     }
                     if (!hidePlayerChrome && !playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
                     windowsInsets
@@ -857,7 +862,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                LaunchedEffect(playerConnection) {
+                LaunchedEffect(playerConnection, playerMediaMetadata) {
                     val player = playerConnection?.player ?: return@LaunchedEffect
                     if (player.currentMediaItem == null) {
                         if (!playerBottomSheetState.isDismissed) {
@@ -1191,11 +1196,12 @@ class MainActivity : ComponentActivity() {
                                             onAccessoryClick = { playerBottomSheetState.expandSoft() },
                                             modifier = Modifier
                                                 .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
                                                 .padding(horizontal = 16.dp)
-                                                .padding(bottom = bottomInset + 8.dp)
+                                                .padding(bottom = bottomInset + FloatingToolbarBottomPadding)
                                                 .graphicsLayer {
                                                     val hiddenOffset =
-                                                        size.height + (bottomInset + 8.dp).toPx()
+                                                        size.height + (bottomInset + FloatingToolbarBottomPadding).toPx()
                                                     val navBarHeightPx = navigationBarHeight.toPx()
                                                     translationY = if (navBarHeightPx == 0f) {
                                                         hiddenOffset

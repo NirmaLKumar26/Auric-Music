@@ -24,8 +24,9 @@ constructor() : ViewModel() {
                 .moodAndGenres()
                 .onSuccess {
                     moodAndGenres.value = it
-                }.onFailure {
+                }                .onFailure {
                     reportException(it)
+                    moodAndGenres.value = emptyList()
                 }
         }
     }

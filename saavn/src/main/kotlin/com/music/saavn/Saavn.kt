@@ -252,9 +252,20 @@ object Saavn {
             }
             return value
         }
-        val best = results.maxBy(::score)
-        require(score(best) >= 4) { "No close JioSaavn match for $title" }
-        best
+        results
+            .filter { song ->
+                val songTitle = normalize(song.title)
+                val songArtists = normalize(song.artists.joinToString { it.name })
+                val titleMatches = songTitle == needleTitle ||
+                    (needleTitle.isNotEmpty() &&
+                        (songTitle.contains(needleTitle) || needleTitle.contains(songTitle)))
+                val artistMatches = needleArtist.isEmpty() ||
+                    songArtists.contains(needleArtist) ||
+                    (songArtists.isNotEmpty() && needleArtist.contains(songArtists))
+                titleMatches && artistMatches
+            }
+            .maxByOrNull(::score)
+            ?: error("No close JioSaavn match for $title")
     }
 
     fun parseUrl(raw: String): SaavnUrlTarget? {

@@ -29,8 +29,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -49,11 +51,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.compose.AsyncImage
@@ -68,6 +72,7 @@ import nirmal.auric.music.LocalPlayerAwareWindowInsets
 import nirmal.auric.music.LocalPlayerConnection
 import nirmal.auric.music.R
 import nirmal.auric.music.constants.InnerTubeCookieKey
+import nirmal.auric.music.constants.PreferredHomeLanguageCodesKey
 import nirmal.auric.music.constants.ShowSpeedDialKey
 import nirmal.auric.music.db.entities.Album
 import nirmal.auric.music.db.entities.Artist
@@ -95,7 +100,10 @@ import nirmal.auric.music.ui.menu.YouTubePlaylistMenu
 import nirmal.auric.music.ui.menu.YouTubeSongMenu
 import nirmal.auric.music.utils.isSaavnMediaId
 import nirmal.auric.music.utils.rememberPreference
+import nirmal.auric.music.utils.dataStore
 import nirmal.auric.music.viewmodels.HomeViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import java.net.URLEncoder
 
 private fun NavController.navigateToPlaylistItem(playlist: PlaylistItem) {
@@ -128,28 +136,34 @@ fun HomeScreen(
 ) {
     val menuState = LocalMenuState.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
-    val quickPicks by viewModel.quickPicks.collectAsState()
-    val aiRecommendedPlaylist by viewModel.aiRecommendedPlaylist.collectAsState()
-    val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
-    val keepListening by viewModel.keepListening.collectAsState()
-    val similarRecommendations by viewModel.similarRecommendations.collectAsState()
-    val accountPlaylists by viewModel.accountPlaylists.collectAsState()
-    val homePage by viewModel.homePage.collectAsState()
-    val explorePage by viewModel.explorePage.collectAsState()
-    val dailyDiscover by viewModel.dailyDiscover.collectAsState()
-    val communityPlaylists by viewModel.communityPlaylists.collectAsState()
-    val saavnTrending by viewModel.saavnTrending.collectAsState()
-    val speedDialItems by viewModel.speedDialItems.collectAsState()
-    val selectedChip by viewModel.selectedChip.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
-    val accountName by viewModel.accountName.collectAsState()
-    val accountImageUrl by viewModel.accountImageUrl.collectAsState()
+    val quickPicks by viewModel.quickPicks.collectAsStateWithLifecycle()
+    val aiRecommendedPlaylist by viewModel.aiRecommendedPlaylist.collectAsStateWithLifecycle()
+    val forgottenFavorites by viewModel.forgottenFavorites.collectAsStateWithLifecycle()
+    val keepListening by viewModel.keepListening.collectAsStateWithLifecycle()
+    val similarRecommendations by viewModel.similarRecommendations.collectAsStateWithLifecycle()
+    val accountPlaylists by viewModel.accountPlaylists.collectAsStateWithLifecycle()
+    val homePage by viewModel.homePage.collectAsStateWithLifecycle()
+    val explorePage by viewModel.explorePage.collectAsStateWithLifecycle()
+    val dailyDiscover by viewModel.dailyDiscover.collectAsStateWithLifecycle()
+    val communityPlaylists by viewModel.communityPlaylists.collectAsStateWithLifecycle()
+    val trendingPlaylists by viewModel.trendingPlaylists.collectAsStateWithLifecycle()
+    val speedDialItems by viewModel.speedDialItems.collectAsStateWithLifecycle()
+    val selectedChip by viewModel.selectedChip.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val accountName by viewModel.accountName.collectAsStateWithLifecycle()
+    val accountImageUrl by viewModel.accountImageUrl.collectAsStateWithLifecycle()
     val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
+    val preferredHomeLanguages by remember {
+        context.dataStore.data
+            .map { it[PreferredHomeLanguageCodesKey].orEmpty() }
+            .distinctUntilChanged()
+    }.collectAsState(emptySet())
     val (showSpeedDial) = rememberPreference(ShowSpeedDialKey, true)
     val isLoggedIn = remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }
     val pullRefreshState = rememberPullToRefreshState()
@@ -162,15 +176,12 @@ fun HomeScreen(
             else -> "there"
         }
     }
-    val trendingPlaylists = remember(saavnTrending, communityPlaylists, accountPlaylists, homePage) {
-        buildList {
-            addAll(saavnTrending)
-            communityPlaylists.orEmpty().forEach { add(it.playlist) }
-            addAll(accountPlaylists.orEmpty())
-            homePage?.sections.orEmpty().forEach { section ->
-                addAll(section.items.filterIsInstance<PlaylistItem>())
-            }
-        }.distinctBy { it.id }.take(10)
+    val visibleLanguages = remember(preferredHomeLanguages) {
+        if (preferredHomeLanguages.isEmpty()) {
+            HomeLanguage.All
+        } else {
+            HomeLanguage.All.filter { it.code in preferredHomeLanguages }
+        }
     }
     val voiceSearch = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -298,6 +309,35 @@ fun HomeScreen(
                 )
             }
 
+            if (!isLoggedIn) {
+                item(key = "sign_in_personalization", contentType = "account") {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = stringResource(R.string.personalize_with_google),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = stringResource(R.string.personalize_with_google_desc),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                            )
+                            Button(onClick = { navController.navigate("login") }) {
+                                Text(stringResource(R.string.action_login))
+                            }
+                        }
+                    }
+                }
+            }
+
             if (trendingPlaylists.isNotEmpty()) {
                 item(key = "trending", contentType = "posters") {
                     Column {
@@ -322,9 +362,13 @@ fun HomeScreen(
 
             item(key = "languages", contentType = "languages") {
                 Column {
-                    HomeSectionTitle(title = stringResource(R.string.home_languages))
+                    HomeSectionTitle(
+                        title = stringResource(R.string.home_languages),
+                        actionText = stringResource(R.string.edit),
+                        onActionClick = { navController.navigate("settings/content") },
+                    )
                     HomeRailRow(
-                        items = HomeLanguage.All,
+                        items = visibleLanguages,
                         key = { it.code },
                     ) { language ->
                         HomeLanguageChip(

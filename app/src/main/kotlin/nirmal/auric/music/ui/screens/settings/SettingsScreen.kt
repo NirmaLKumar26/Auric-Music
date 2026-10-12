@@ -10,6 +10,7 @@ import android.provider.Settings
 import android.widget.Toast
 import android.net.Uri
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -54,6 +56,11 @@ import nirmal.auric.music.ui.component.Material3SettingsItem
 import nirmal.auric.music.ui.screens.Screens
 import nirmal.auric.music.ui.utils.backToMain
 import nirmal.auric.music.auricmusic.updater.getUpdateAvailableState
+import nirmal.auric.music.constants.AccountEmailKey
+import nirmal.auric.music.constants.AccountNameKey
+import nirmal.auric.music.constants.InnerTubeCookieKey
+import nirmal.auric.music.constants.YtmSyncKey
+import nirmal.auric.music.utils.rememberPreference
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,6 +73,11 @@ highlightKey: String? = null) {
     val context = LocalContext.current
     val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val isUpdateAvailable = getUpdateAvailableState(context) && nirmal.auric.music.auricmusic.updater.getAutoUpdateCheckSetting(context)
+    val (accountName) = rememberPreference(AccountNameKey, "")
+    val (accountEmail) = rememberPreference(AccountEmailKey, "")
+    val (accountCookie) = rememberPreference(InnerTubeCookieKey, "")
+    val (ytmSync) = rememberPreference(YtmSyncKey, true)
+    val isSignedIn = accountCookie.contains("SAPISID=")
 
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val searchLower = searchQuery.lowercase()
@@ -116,6 +128,58 @@ highlightKey: String? = null) {
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 8.dp, top = 24.dp, bottom = 16.dp)
         )
+
+        if (searchQuery.isBlank()) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, bottom = 16.dp)
+                    .clickable { navController.navigate("settings/account") },
+            ) {
+                Row(
+                    modifier = Modifier.padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = accountName.firstOrNull()?.uppercase() ?: "A",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isSignedIn) accountName.ifBlank { accountText } else stringResource(R.string.sign_in_for_personalization),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = when {
+                                !isSignedIn -> stringResource(R.string.personalize_with_google_desc)
+                                ytmSync -> accountEmail.ifBlank { stringResource(R.string.personalization_and_sync_on) }
+                                else -> stringResource(R.string.personalization_on_sync_off)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        painter = painterResource(R.drawable.chevron_right_px),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
 
         OutlinedTextField(
             value = searchQuery,
@@ -366,7 +430,33 @@ highlightKey: String? = null) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Material3SettingsGroup(scrollState = scrollState, items = finalItemsList)
+        if (searchQuery.isNotEmpty()) {
+            Material3SettingsGroup(scrollState = scrollState, items = finalItemsList)
+        } else {
+            Material3SettingsGroup(
+                scrollState = scrollState,
+                title = stringResource(R.string.settings_section_ui),
+                items = itemsList.take(3),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Material3SettingsGroup(
+                scrollState = scrollState,
+                title = stringResource(R.string.settings_section_player_content),
+                items = itemsList.drop(3).take(3),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Material3SettingsGroup(
+                scrollState = scrollState,
+                title = stringResource(R.string.settings_section_storage),
+                items = itemsList.drop(6).take(3),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Material3SettingsGroup(
+                scrollState = scrollState,
+                title = stringResource(R.string.settings_section_system),
+                items = itemsList.drop(9),
+            )
+        }
         }
         
         Spacer(modifier = Modifier.height(50.dp))

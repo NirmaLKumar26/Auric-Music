@@ -134,7 +134,17 @@ object YouTube {
         dataSyncId = null
     }
 
+    /** True when stored cookies include SAPISID and can be used for authenticated InnerTube calls. */
+    fun hasValidLogin(): Boolean = innerTube.hasValidAccountSession()
+
+    private suspend fun ensureVisitorData() {
+        if (visitorData.isNullOrBlank()) {
+            refreshVisitorData()
+        }
+    }
+
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> = runCatching {
+        ensureVisitorData()
         val response = innerTube.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
         SearchSuggestions(
             queries = response.contents?.getOrNull(0)?.searchSuggestionsSectionRenderer?.contents?.mapNotNull { content ->
@@ -149,6 +159,7 @@ object YouTube {
     }
 
     suspend fun searchSummary(query: String): Result<SearchSummaryPage> = runCatching {
+        ensureVisitorData()
         val response = innerTube.search(WEB_REMIX, query).body<SearchResponse>()
         val contents = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty()
@@ -221,6 +232,7 @@ object YouTube {
     }
 
     suspend fun search(query: String, filter: SearchFilter): Result<SearchResult> = runCatching {
+        ensureVisitorData()
         val response = innerTube.search(WEB_REMIX, query, filter.value).body<SearchResponse>()
         val musicShelfRenderer = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents
@@ -235,6 +247,7 @@ object YouTube {
     }
 
     suspend fun searchContinuation(continuation: String): Result<SearchResult> = runCatching {
+        ensureVisitorData()
         val response = innerTube.search(WEB_REMIX, continuation = continuation).body<SearchResponse>()
         val items = response.continuationContents?.musicShelfContinuation?.contents
             ?.mapNotNull {
@@ -671,6 +684,7 @@ object YouTube {
     }
 
     suspend fun home(continuation: String? = null, params: String? = null): Result<HomePage> = runCatching {
+        ensureVisitorData()
         if (continuation != null) {
             return@runCatching homeContinuation(continuation).getOrThrow()
         }
@@ -705,6 +719,7 @@ object YouTube {
     }
 
     suspend fun explore(): Result<ExplorePage> = runCatching {
+        ensureVisitorData()
         val response = innerTube.browse(WEB_REMIX, browseId = "FEmusic_explore").body<BrowseResponse>()
         ExplorePage(
             newReleaseAlbums = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.find {
@@ -730,8 +745,10 @@ object YouTube {
     }
 
     suspend fun moodAndGenres(): Result<List<MoodAndGenres>> = runCatching {
+        ensureVisitorData()
         val response = innerTube.browse(WEB_REMIX, browseId = "FEmusic_moods_and_genres").body<BrowseResponse>()
-        response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents!!
+        response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents
+            .orEmpty()
             .mapNotNull(MoodAndGenres.Companion::fromSectionListRendererContent)
     }
 
@@ -937,6 +954,7 @@ object YouTube {
     }
 
     suspend fun getChartsPage(continuation: String? = null): Result<ChartsPage> = runCatching {
+        ensureVisitorData()
         val response = innerTube.browse(
             client = WEB_REMIX,
             browseId = "FEmusic_charts",
@@ -1196,6 +1214,7 @@ object YouTube {
     }
 
     suspend fun player(videoId: String, playlistId: String? = null, client: YouTubeClient, signatureTimestamp: Int? = null, poToken: String? = null): Result<PlayerResponse> = runCatching {
+        ensureVisitorData()
         innerTube.player(client, videoId, playlistId, signatureTimestamp, poToken).body<PlayerResponse>()
     }
 
